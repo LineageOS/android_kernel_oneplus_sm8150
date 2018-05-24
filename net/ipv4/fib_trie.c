@@ -1306,14 +1306,14 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
 	unsigned long index;
 	t_key cindex;
 
-	trace_fib_table_lookup(tb->tb_id, flp);
-
 	pn = t->kv;
 	cindex = 0;
 
 	n = get_child_rcu(pn, cindex);
-	if (!n)
+	if (!n) {
+		trace_fib_table_lookup(tb->tb_id, flp, NULL, -EAGAIN);
 		return -EAGAIN;
+	}
 
 #ifdef CONFIG_IP_FIB_TRIE_STATS
 	this_cpu_inc(stats->gets);
@@ -1396,8 +1396,11 @@ backtrace:
 				 * nothing for us to do as we do not have any
 				 * further nodes to parse.
 				 */
-				if (IS_TRIE(pn))
+				if (IS_TRIE(pn)) {
+					trace_fib_table_lookup(tb->tb_id, flp,
+							       NULL, -EAGAIN);
 					return -EAGAIN;
+				}
 #ifdef CONFIG_IP_FIB_TRIE_STATS
 				this_cpu_inc(stats->backtrack);
 #endif
@@ -1439,6 +1442,7 @@ found:
 #ifdef CONFIG_IP_FIB_TRIE_STATS
 			this_cpu_inc(stats->semantic_match_passed);
 #endif
+			trace_fib_table_lookup(tb->tb_id, flp, NULL, err);
 			return err;
 		}
 		if (fi->fib_flags & RTNH_F_DEAD)
@@ -1474,7 +1478,7 @@ found:
 #ifdef CONFIG_IP_FIB_TRIE_STATS
 			this_cpu_inc(stats->semantic_match_passed);
 #endif
-			trace_fib_table_lookup_nh(nh);
+			trace_fib_table_lookup(tb->tb_id, flp, nh, err);
 
 			return err;
 		}
