@@ -1328,6 +1328,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->ss_lane_svid = 0x0;
 		}
 
+		dual_role_instance_changed(pd->dual_role);
 
 		val.intval = 1; /* Rp-1.5A; SinkTxNG for PD 3.0 */
 		power_supply_set_property(pd->usb_psy,
@@ -1574,6 +1575,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 					start_usb_peripheral(pd);
 			}
 		}
+
+		dual_role_instance_changed(pd->dual_role);
 
 		pd_reset_protocol(pd);
 
