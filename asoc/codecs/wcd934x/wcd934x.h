@@ -95,6 +95,13 @@ enum {
 	INTERP_MAX,
 };
 
+/* WCD934X slimbus slave port error status */
+enum {
+	SB_PORT_ERR_OF, /* SB port overflow */
+	SB_PORT_ERR_UF, /* SB port underflow */
+	SB_PORT_ERR_MAX,
+};
+
 /*
  * Selects compander and smart boost settings
  * for a given speaker mode

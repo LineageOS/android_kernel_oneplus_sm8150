@@ -18,6 +18,28 @@
 #include "wcdcal-hwdep.h"
 #include <sound/jack.h>
 
+#include <linux/extcon.h>
+struct extcon_dev {
+	const char *name;
+	const unsigned int *supported_cable;
+	const u32 *mutually_exclusive;
+
+	struct device dev;
+	struct raw_notifier_head nh_all;
+	struct raw_notifier_head *nh;
+	struct blocking_notifier_head *bnh;
+	struct list_head entry;
+	int max_supported;
+	spinlock_t lock;
+	u32 state;
+
+	struct device_type extcon_dev_type;
+	struct extcon_cable *cables;
+
+	struct attribute_group attr_g_muex;
+	struct attribute **attrs_muex;
+	struct device_attribute *d_attrs_muex;
+};
 #define TOMBAK_MBHC_NC	0
 #define TOMBAK_MBHC_NO	1
 #define WCD_MBHC_DEF_BUTTONS 8
@@ -154,6 +176,12 @@ do {                                                    \
 #define ANC_DETECT_RETRY_CNT 7
 #define WCD_MBHC_SPL_HS_CNT  1
 
+enum extcon_plug_type {
+	EXTCON_PLUG_TYPE_NONE = 19,
+	EXTCON_PLUG_TYPE_HEADSET = 20,
+	EXTCON_PLUG_TYPE_HEADPHONE,
+	EXTCON_PLUG_TYPE_GND_MIC_SWAP,
+};
 enum wcd_mbhc_detect_logic {
 	WCD_DETECTION_LEGACY,
 	WCD_DETECTION_ADC,
@@ -525,6 +553,8 @@ struct wcd_mbhc {
 	struct wcd_mbhc_config *mbhc_cfg;
 	const struct wcd_mbhc_cb *mbhc_cb;
 
+	struct extcon_dev *wcd934x_edev;
+
 	u32 hph_status; /* track headhpone status */
 	u8 hphlocp_cnt; /* headphone left ocp retry */
 	u8 hphrocp_cnt; /* headphone right ocp retry */
@@ -551,6 +581,10 @@ struct wcd_mbhc {
 	bool skip_imped_detection;
 	bool is_btn_already_regd;
 	bool extn_cable_hph_rem;
+
+	struct delayed_work mbhc_usbc_dwork;
+	bool usbc_hp_detect;
+	bool usbc_hp_status;
 
 	struct snd_soc_codec *codec;
 	/* Work to perform MBHC Firmware Read */
