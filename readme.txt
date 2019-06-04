@@ -1,4 +1,4 @@
-for make audio is work normal, pelase help add audio_tfa9894.ko to your BoardConfig and product.mk
+for make audio is work normal, please help add audio_tfa9894.ko to your BoardConfig and product.mk
 as below patch show. Thanks
 
 diff --git a/BoardConfig.mk b/BoardConfig.mk
@@ -23,6 +23,5 @@ index 1a8413b..9c2d719 100644
  AUDIO_DLKM += audio_wcd934x.ko
 +AUDIO_DLKM += audio_tfa9894.ko
  PRODUCT_PACKAGES += $(AUDIO_DLKM)
- 
- PRODUCT_PACKAGES += fs_config_files
 
+ PRODUCT_PACKAGES += fs_config_files
