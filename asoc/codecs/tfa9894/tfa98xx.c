@@ -36,6 +36,7 @@
 #include "tfa.h"
 #include "tfa_internal.h"
 
+#include <linux/regulator/consumer.h>
 /* required for enum tfa9912_irq */
 #include "tfa98xx_tfafieldnames.h"
 
@@ -77,6 +78,7 @@ static nxpTfaContainer_t *tfa98xx_container = NULL;
 
 static int tfa98xx_kmsg_regs = 0;
 static int tfa98xx_ftrace_regs = 0;
+static int tfa98xx_stereo_mode = 0;
 
 static char *fw_name = "tfa98xx.cnt";
 module_param(fw_name, charp, S_IRUGO | S_IWUSR);
@@ -1507,6 +1509,7 @@ static int tfa98xx_set_stereo_ctl(struct snd_kcontrol *kcontrol,
 	int selector;
 
 	selector = ucontrol->value.integer.value[0];
+	tfa98xx_stereo_mode = selector;
 
 	mutex_lock(&tfa98xx_mutex);
 	list_for_each_entry(tfa98xx, &tfa98xx_device_list, list) {
@@ -2881,6 +2884,134 @@ int tfa98xx_keyreg_print(struct tfa98xx *tfa98xx)
 
 }
 
+static int tfa98xx_vreg_ldo_enable(struct tfa98xx *tfa98xx)
+{
+	int rc;
+
+	if (IS_ERR(tfa98xx->vreg_ldo) || (tfa98xx->vreg_ldo_enabled == true)) {
+		return -1;
+	};
+
+	if (regulator_count_voltages(tfa98xx->vreg_ldo) > 0) {
+		// set ldo voltage to 3.3v
+		rc = regulator_set_voltage(tfa98xx->vreg_ldo, 3312000, 3312000);
+		if (rc) {
+			dev_err(tfa98xx->dev, "%s: set tfa ldo regulator voltage failed, rc = %d\n",
+				__func__, rc);
+			goto out;
+		}
+		dev_dbg(tfa98xx->dev, "%s: set regulator voltage success\n", __func__);
+	}
+
+	rc = regulator_enable(tfa98xx->vreg_ldo);
+	if (rc < 0) {
+		dev_err(tfa98xx->dev, "%s: failed to enable tfa ldo regulator\n", __func__);
+		goto out;
+	}
+
+	tfa98xx->vreg_ldo_enabled = true;
+
+out:
+	dev_info(tfa98xx->dev, "%s: exit, rc = %d\n", __func__, rc);
+	return rc;
+}
+
+static int tfa98xx_vreg_ldo_disable(struct tfa98xx *tfa98xx)
+{
+	int rc;
+
+	if (IS_ERR(tfa98xx->vreg_ldo) || (tfa98xx->vreg_ldo_enabled == false)) {
+		return 0;
+	};
+
+	rc = regulator_disable(tfa98xx->vreg_ldo);
+	if (rc) {
+		dev_err(tfa98xx->dev, "%s: failed to disable tfa ldo regulator\n", __func__);
+	}
+
+	if (regulator_count_voltages(tfa98xx->vreg_ldo) > 0) {
+		// set the min voltage to 0
+		rc = regulator_set_voltage(tfa98xx->vreg_ldo, 0, 3312000);
+		if (rc) {
+			dev_err(tfa98xx->dev, "%s: set tfa ldo regulator voltage failed, rc = %d\n",
+				__func__, rc);
+		}
+	}
+
+	tfa98xx->vreg_ldo_enabled = false;
+
+	dev_info(tfa98xx->dev, "%s: exit\n", __func__);
+
+	return 0;
+}
+static int tfa98xx_vreg_bob_enable(struct tfa98xx *tfa98xx)
+{
+	int rc;
+
+	if (IS_ERR(tfa98xx->vreg_bob) || (tfa98xx->vreg_bob_enabled == true)) {
+		return -1;
+	};
+
+	if (regulator_count_voltages(tfa98xx->vreg_bob) > 0) {
+		// set bob regulator to pwm mode
+		rc = regulator_set_load(tfa98xx->vreg_bob, 2000000);
+		if (rc) {
+			dev_err(tfa98xx->dev, "%s: set tfa bob regulator load failed, rc = %d\n",
+				__func__, rc);
+			goto out;
+		}
+		dev_dbg(tfa98xx->dev, "%s: set regulator load success\n", __func__);
+	}
+
+	rc = regulator_enable(tfa98xx->vreg_bob);
+	if (rc < 0) {
+		dev_err(tfa98xx->dev, "%s: failed to enable tfa bob regulator\n", __func__);
+		goto out;
+	}
+
+	tfa98xx->vreg_bob_enabled = true;
+
+out:
+	dev_info(tfa98xx->dev, "%s: exit, rc = %d\n", __func__, rc);
+	return rc;
+}
+
+static int tfa98xx_vreg_bob_disable(struct tfa98xx *tfa98xx)
+{
+	int rc;
+
+	if (IS_ERR(tfa98xx->vreg_bob) || (tfa98xx->vreg_bob_enabled == false)) {
+		return 0;
+	};
+
+	rc = regulator_disable(tfa98xx->vreg_bob);
+	if (rc) {
+		dev_err(tfa98xx->dev, "%s: failed to disable tfa bob regulator\n", __func__);
+	}
+
+	if (regulator_count_voltages(tfa98xx->vreg_bob) > 0) {
+		regulator_set_load(tfa98xx->vreg_bob, 0);
+	}
+
+	tfa98xx->vreg_bob_enabled = false;
+
+	dev_info(tfa98xx->dev, "%s: exit\n", __func__);
+
+	return 0;
+}
+
+static int tfa98xx_vreg_set(struct tfa98xx *tfa98xx, bool enable)
+{
+	if (enable) {
+		tfa98xx_vreg_bob_enable(tfa98xx);
+		tfa98xx_vreg_ldo_enable(tfa98xx);
+	} else {
+		tfa98xx_vreg_ldo_disable(tfa98xx);
+		tfa98xx_vreg_bob_disable(tfa98xx);
+	}
+
+	return 0;
+}
 
 static int tfa98xx_mute(struct snd_soc_dai *dai, int mute, int stream)
 {
@@ -2926,6 +3057,7 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute, int stream)
 		tfa_dev_stop(tfa98xx->tfa);
 		tfa98xx->dsp_init = TFA98XX_DSP_INIT_STOPPED;
 		mutex_unlock(&tfa98xx->dsp_lock);
+		tfa98xx_vreg_set(tfa98xx, false);
 	} else {
 		if (stream == SNDRV_PCM_STREAM_PLAYBACK)
 #ifdef TFA9894_NONDSP_STEREO
@@ -2938,6 +3070,10 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute, int stream)
 			   (tfa98xx->dsp_init != TFA98XX_DSP_INIT_PENDING))
 				tfa98xx_dsp_init(tfa98xx);
 			tfa98xx_keyreg_print(tfa98xx);
+			if ((tfa98xx->flags & TFA9894_FLAG_CHIP_SELECTED) &&
+			    (tfa98xx_stereo_mode == 3)) {
+				tfa98xx_vreg_set(tfa98xx, true);
+			}
 		} else
 			tfa98xx->cstream = 1;
 #else
@@ -3598,6 +3734,17 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 	pr_info("%s Probe completed successfully!\n", __func__);
 
 	INIT_LIST_HEAD(&tfa98xx->list);
+	tfa98xx->vreg_ldo = devm_regulator_get(&i2c->dev, "tfa_ldo");
+	if (IS_ERR(tfa98xx->vreg_ldo)) {
+		dev_warn(&i2c->dev, "Failed to get tfa_ldo regulator\n");
+	}
+	tfa98xx->vreg_ldo_enabled = false;
+
+	tfa98xx->vreg_bob = devm_regulator_get(&i2c->dev, "tfa_bob");
+	if (IS_ERR(tfa98xx->vreg_bob)) {
+		dev_warn(&i2c->dev, "Failed to get tfa_bob regulator\n");
+	}
+	tfa98xx->vreg_bob_enabled = false;
 
 	mutex_lock(&tfa98xx_mutex);
 	g_tfa98xx[tfa98xx_device_count] = tfa98xx;

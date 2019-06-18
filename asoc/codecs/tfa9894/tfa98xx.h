@@ -127,6 +127,11 @@ struct tfa98xx {
 	int profile;
 	int prof_vsteps[TFACONT_MAXPROFS]; /* store vstep per profile (single device) */
 
+	struct regulator *vreg_ldo;
+	bool vreg_ldo_enabled;
+
+	struct regulator *vreg_bob;
+	bool vreg_bob_enabled;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dbg_dir;
 #endif
