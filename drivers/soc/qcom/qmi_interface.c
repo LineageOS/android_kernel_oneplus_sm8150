@@ -317,7 +317,6 @@ int qmi_txn_init(struct qmi_handle *qmi, struct qmi_txn *txn,
 
 	memset(txn, 0, sizeof(*txn));
 
-	mutex_init(&txn->lock);
 	init_completion(&txn->completion);
 	txn->qmi = qmi;
 	txn->ei = ei;
@@ -357,9 +356,7 @@ int qmi_txn_wait(struct qmi_txn *txn, unsigned long timeout)
 		return txn->result;
 
 	mutex_lock(&qmi->txn_lock);
-	mutex_lock(&txn->lock);
 	idr_remove(&qmi->txns, txn->id);
-	mutex_unlock(&txn->lock);
 	mutex_unlock(&qmi->txn_lock);
 
 	if (ret == 0)
@@ -378,9 +375,7 @@ void qmi_txn_cancel(struct qmi_txn *txn)
 	struct qmi_handle *qmi = txn->qmi;
 
 	mutex_lock(&qmi->txn_lock);
-	mutex_lock(&txn->lock);
 	idr_remove(&qmi->txns, txn->id);
-	mutex_unlock(&txn->lock);
 	mutex_unlock(&qmi->txn_lock);
 }
 EXPORT_SYMBOL(qmi_txn_cancel);
@@ -455,17 +450,18 @@ static void qmi_handle_net_reset(struct qmi_handle *qmi)
 	if (IS_ERR(sock))
 		return;
 
-	mutex_lock(&qmi->sock_lock);
-	sock_release(qmi->sock);
-	qmi->sock = NULL;
-	mutex_unlock(&qmi->sock_lock);
-
 	qmi_recv_del_server(qmi, -1, -1);
 
 	if (qmi->ops.net_reset)
 		qmi->ops.net_reset(qmi);
 
 	mutex_lock(&qmi->sock_lock);
+	/* Already qmi_handle_release() started */
+	if (!qmi->sock) {
+		sock_release(sock);
+		return;
+	}
+	sock_release(qmi->sock);
 	qmi->sock = sock;
 	qmi->sq = sq;
 	mutex_unlock(&qmi->sock_lock);
@@ -500,24 +496,22 @@ static void qmi_handle_message(struct qmi_handle *qmi,
 	if (hdr->type == QMI_RESPONSE) {
 		mutex_lock(&qmi->txn_lock);
 		txn = idr_find(&qmi->txns, hdr->txn_id);
-		if (txn)
-			mutex_lock(&txn->lock);
+		/* Ignore unexpected responses */
+		if (!txn) {
+			mutex_unlock(&qmi->txn_lock);
+			return;
+		}
+		if (txn->dest && txn->ei) {
+			ret = qmi_decode_message(buf, len, txn->ei, txn->dest);
+			if (ret < 0)
+				pr_err("failed to decode incoming message\n");
+
+			txn->result = ret;
+			complete(&txn->completion);
+		} else {
+			qmi_invoke_handler(qmi, sq, txn, buf, len);
+		}
 		mutex_unlock(&qmi->txn_lock);
-	}
-
-	if (txn && txn->dest && txn->ei) {
-		ret = qmi_decode_message(buf, len, txn->ei, txn->dest);
-		if (ret < 0)
-			pr_err("failed to decode incoming message\n");
-
-		txn->result = ret;
-		complete(&txn->completion);
-
-		mutex_unlock(&txn->lock);
-	} else if (txn) {
-		qmi_invoke_handler(qmi, sq, txn, buf, len);
-
-		mutex_unlock(&txn->lock);
 	} else {
 		/* Create a txn based on the txn_id of the incoming message */
 		memset(&tmp_txn, 0, sizeof(tmp_txn));
@@ -691,27 +685,29 @@ EXPORT_SYMBOL(qmi_handle_init);
  */
 void qmi_handle_release(struct qmi_handle *qmi)
 {
-	struct socket *sock = qmi->sock;
+	struct socket *sock;
 	struct qmi_service *svc, *tmp;
 	struct qmi_txn *txn;
 	int txn_id;
 
+	mutex_lock(&qmi->sock_lock);
+	sock = qmi->sock;
 	write_lock_bh(&sock->sk->sk_callback_lock);
 	sock->sk->sk_user_data = NULL;
 	write_unlock_bh(&sock->sk->sk_callback_lock);
-	cancel_work_sync(&qmi->work);
-
-	qmi_recv_del_server(qmi, -1, -1);
-
-	mutex_lock(&qmi->sock_lock);
 	sock_release(sock);
 	qmi->sock = NULL;
 	mutex_unlock(&qmi->sock_lock);
+
+	cancel_work_sync(&qmi->work);
+
+	qmi_recv_del_server(qmi, -1, -1);
 
 	destroy_workqueue(qmi->wq);
 
 	mutex_lock(&qmi->txn_lock);
 	idr_for_each_entry(&qmi->txns, txn, txn_id) {
+		idr_remove(&qmi->txns, txn->id);
 		txn->result = -ENETRESET;
 		complete(&txn->completion);
 	}
