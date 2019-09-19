@@ -93,6 +93,11 @@
 #include "msm-arm-smmu-sm8150-v2.dtsi"
 
 &pcie0 {
+
+	qcom,msm-bus,vectors-KBps =
+			<100 512 0 0>,
+			<100 512 500 2000000>;
+
 	reg = <0x1c00000 0x4000>,
 		<0x1c06000 0x1000>,
 		<0x60000000 0xf1d>,
@@ -203,6 +208,11 @@
 };
 
 &pcie1 {
+
+	qcom,msm-bus,vectors-KBps =
+			<100 512 0 0>,
+			<100 512 500 2000000>;
+
 	reg = <0x1c08000 0x4000>,
 		<0x1c0e000 0x2000>,
 		<0x40000000 0xf1d>,
