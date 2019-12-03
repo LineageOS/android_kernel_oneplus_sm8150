@@ -26,6 +26,7 @@ typedef struct {
 	atomic64_t	id;
 	void		*vdso;
 	unsigned long	flags;
+	atomic_t	nr_active_mm;
 } mm_context_t;
 
 /*
@@ -33,7 +34,8 @@ typedef struct {
  * ASID change and therefore doesn't need to reload the counter using
  * atomic64_read.
  */
-#define ASID(mm)	((mm)->context.id.counter & 0xffff)
+#define __ASID(asid)	((asid) & 0xffff)
+#define ASID(mm)	__ASID((mm)->context.id.counter)
 
 static inline bool arm64_kernel_unmapped_at_el0(void)
 {

@@ -119,7 +119,7 @@ static inline void efifb_setup_from_dmi(struct screen_info *si, const char *opt)
 
 static inline void efi_set_pgd(struct mm_struct *mm)
 {
-	__switch_mm(mm);
+	__switch_mm(mm, smp_processor_id());
 
 	if (system_uses_ttbr0_pan()) {
 		if (mm != current->active_mm) {

@@ -164,7 +164,10 @@ static inline void __nocfi cpu_replace_ttbr1(pgd_t *pgd)
 #define destroy_context(mm)		do { } while(0)
 void check_and_switch_context(struct mm_struct *mm, unsigned int cpu);
 
-#define init_new_context(tsk,mm)	({ atomic64_set(&(mm)->context.id, 0); 0; })
+#define init_new_context(tsk,mm)			\
+	({ atomic64_set(&(mm)->context.id, 0);		\
+	   atomic_set(&(mm)->context.nr_active_mm, 0);	\
+	   0; })
 
 #ifdef CONFIG_ARM64_SW_TTBR0_PAN
 static inline void update_saved_ttbr0(struct task_struct *tsk,
@@ -192,6 +195,23 @@ static inline void update_saved_ttbr0(struct task_struct *tsk,
 static inline void
 enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
 {
+	unsigned int cpu = smp_processor_id();
+	if (per_cpu(cpu_not_lazy_tlb, cpu) &&
+	    is_idle_task(tsk)) {
+		per_cpu(cpu_not_lazy_tlb, cpu) = false;
+		if (!system_uses_ttbr0_pan())
+			cpu_set_reserved_ttbr0();
+		/*
+		 * DSB will flush the speculative pagetable walks on
+		 * the old asid. It's required before decreasing
+		 * nr_active_mm because after decreasing nr_active_mm
+		 * the tlbi broadcast may not happen on the unloaded
+		 * asid before the pagetables are freed.
+		 */
+		dsb(ish);
+		atomic_dec(&mm->context.nr_active_mm);
+	}
+	VM_WARN_ON(atomic_read(&mm->context.nr_active_mm) < 0);
 	/*
 	 * We don't actually care about the ttbr0 mapping, so point it at the
 	 * zero page.
@@ -199,10 +219,8 @@ enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
 	update_saved_ttbr0(tsk, &init_mm);
 }
 
-static inline void __switch_mm(struct mm_struct *next)
+static inline void __switch_mm(struct mm_struct *next, unsigned int cpu)
 {
-	unsigned int cpu = smp_processor_id();
-
 	/*
 	 * init_mm.pgd does not contain any user mappings and it is always
 	 * active for kernel addresses in TTBR1. Just set the reserved TTBR0.
@@ -219,8 +237,27 @@ static inline void
 switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	  struct task_struct *tsk)
 {
-	if (prev != next)
-		__switch_mm(next);
+	unsigned int cpu = smp_processor_id();
+
+	if (!per_cpu(cpu_not_lazy_tlb, cpu)) {
+		per_cpu(cpu_not_lazy_tlb, cpu) = true;
+		atomic_inc(&next->context.nr_active_mm);
+		__switch_mm(next, cpu);
+	} else if (prev != next) {
+		atomic_inc(&next->context.nr_active_mm);
+		__switch_mm(next, cpu);
+		/*
+		 * DSB will flush the speculative pagetable walks on
+		 * the old asid. It's required before decreasing
+		 * nr_active_mm because after decreasing nr_active_mm
+		 * the tlbi broadcast may not happen on the unloaded
+		 * asid before the pagetables are freed.
+		 */
+		dsb(ish);
+		atomic_dec(&prev->context.nr_active_mm);
+	}
+	VM_WARN_ON(!atomic_read(&next->context.nr_active_mm));
+	VM_WARN_ON(atomic_read(&prev->context.nr_active_mm) < 0);
 
 	/*
 	 * Update the saved TTBR0_EL1 of the scheduled-in task as the previous

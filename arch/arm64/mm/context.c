@@ -36,6 +36,7 @@ static unsigned long *asid_map;
 static DEFINE_PER_CPU(atomic64_t, active_asids);
 static DEFINE_PER_CPU(u64, reserved_asids);
 static cpumask_t tlb_flush_pending;
+DEFINE_PER_CPU(bool, cpu_not_lazy_tlb);
 
 #define ASID_MASK		(~GENMASK(asid_bits - 1, 0))
 #define ASID_FIRST_VERSION	(1UL << asid_bits)
@@ -191,6 +192,12 @@ static u64 new_context(struct mm_struct *mm, unsigned int cpu)
 set_asid:
 	__set_bit(asid, asid_map);
 	cur_idx = asid;
+	/*
+	  * check_and_switch_context() will change the ASID of this mm
+	  * so no need of extra ASID local TLB flushes: the new ASID
+	  * isn't stale anymore after the tlb_flush_pending was set.
+	  */
+	cpumask_clear(mm_cpumask(mm));
 	return idx2asid(asid) | generation;
 }
 
@@ -227,6 +234,15 @@ void check_and_switch_context(struct mm_struct *mm, unsigned int cpu)
 	raw_spin_unlock_irqrestore(&cpu_asid_lock, flags);
 
 switch_mm_fastpath:
+	/*
+	 * Enforce CPU ordering between the atomic_inc(nr_active_mm)
+	 * in switch_mm() and the below cpumask_test_cpu(mm_cpumask).
+	 */
+	smp_mb();
+	if (cpumask_test_cpu(cpu, mm_cpumask(mm))) {
+		cpumask_clear_cpu(cpu, mm_cpumask(mm));
+		local_flush_tlb_asid(asid);
+	}
 
 	arm64_apply_bp_hardening();
 
@@ -236,6 +252,44 @@ switch_mm_fastpath:
 	 */
 	if (!system_uses_ttbr0_pan())
 		cpu_switch_mm(mm->pgd, mm);
+}
+
+enum tlb_flush_types tlb_flush_check(struct mm_struct *mm, unsigned int cpu)
+{
+	if (atomic_read(&mm->context.nr_active_mm) <= 1) {
+		bool is_local = current->active_mm == mm &&
+			per_cpu(cpu_not_lazy_tlb, cpu);
+		cpumask_t *stale_cpumask = mm_cpumask(mm);
+		unsigned int next_zero = cpumask_next_zero(-1, stale_cpumask);
+		bool local_is_clear = false;
+		if (next_zero < nr_cpu_ids &&
+		    (is_local && next_zero == cpu)) {
+			next_zero = cpumask_next_zero(next_zero, stale_cpumask);
+			local_is_clear = true;
+		}
+		if (next_zero < nr_cpu_ids) {
+			cpumask_setall(stale_cpumask);
+			local_is_clear = false;
+		}
+
+		/*
+		 * Enforce CPU ordering between the above
+		 * cpumask_setall(mm_cpumask) and the below
+		 * atomic_read(nr_active_mm).
+		 */
+		smp_mb();
+
+		if (likely(atomic_read(&mm->context.nr_active_mm)) <= 1) {
+			if (is_local) {
+				if (!local_is_clear)
+					cpumask_clear_cpu(cpu, stale_cpumask);
+				return TLB_FLUSH_LOCAL;
+			}
+			if (atomic_read(&mm->context.nr_active_mm) == 0)
+				return TLB_FLUSH_NO;
+		}
+	}
+	return TLB_FLUSH_BROADCAST;
 }
 
 /* Errata workaround post TTBRx_EL1 update. */
