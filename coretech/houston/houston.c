@@ -19,6 +19,7 @@
 #include <linux/cdev.h>
 #include <linux/workqueue.h>
 #include <linux/clk.h>
+#include <linux/jiffies.h>
 
 #ifdef CONFIG_AIGOV
 #include <linux/oem/aigov.h>
@@ -113,6 +114,9 @@ static struct list_head ht_rtg_head = LIST_HEAD_INIT(ht_rtg_head);
  */
 static struct list_head ht_rtg_perf_head = LIST_HEAD_INIT(ht_rtg_perf_head);
 
+/* report skin_temp to ais */
+static unsigned int thermal_update_period_hz = 100;
+module_param_named(thermal_update_period_hz, thermal_update_period_hz, uint, 0664);
 
 /*
  * filter mechanism
@@ -161,6 +165,15 @@ static unsigned long bat_update_period_us = 1000000; // 1 sec
 module_param_named(bat_update_period_us, bat_update_period_us, ulong, 0664);
 
 extern void bq27541_force_update_current(void);
+
+/* ioctl retry count */
+#define HT_IOCTL_RETRY_MAX 128
+static int ht_ioctl_retry_count = 0;
+module_param_named(ioctl_retry_count, ht_ioctl_retry_count, int, 0664);
+
+/* brain status */
+static bool ht_brain_active = true;
+module_param_named(brain_active, ht_brain_active, bool, 0664);
 
 /* fps boost switch */
 static bool fps_boost_enable = true;
@@ -452,6 +465,29 @@ static void enable_cpu_counters(void* data)
 	ht_logi("CPU:%d enable counter\n", smp_processor_id());
 }
 
+static unsigned int ht_get_temp_delay(int idx)
+{
+	static unsigned long next[HT_MONITOR_SIZE] = {0};
+	static unsigned int temps[HT_MONITOR_SIZE] = {0};
+
+	/* only allow for reading sensor data */
+	if (unlikely(idx < HT_CPU_0 || idx > HT_THERM_1))
+		return 0;
+
+	/* update */
+	if (jiffies > next[idx] && jiffies - next[idx] > thermal_update_period_hz) {
+		next[idx] = jiffies;
+		temps[idx] = ht_get_temp(idx);
+	}
+
+	if (jiffies < next[idx]) {
+		next[idx] = jiffies;
+		temps[idx] = ht_get_temp(idx);
+	}
+
+	return temps[idx];
+}
+
 /*
  * boost cpufreq while no ais activated
  * boost_target[0] : pid
@@ -712,7 +748,8 @@ void ht_collect_perf_data(struct work_struct *work)
 	}
 
 	/* notify ai_scheduler that data collected */
-	wake_up(&ht_perf_waitq);
+	if (likely(ht_brain_active))
+		wake_up(&ht_perf_waitq);
 	put_task_struct(task);
 }
 
@@ -857,7 +894,7 @@ static void do_fps_boost(unsigned int val, unsigned int period_us)
 	struct task_struct *t;
 	u64 prev_ddr_target = 100;
 	u64 ddr_target = 100; /* default value */
-	struct cc_command cc;
+	//struct cc_command cc;
 
 	if (!fps_boost_enable)
 		return;
@@ -939,38 +976,38 @@ static void do_fps_boost(unsigned int val, unsigned int period_us)
 		do_cpufreq_boost_helper(CLUS_2_IDX, val, period_us, orig, cur);
 	}
 
-	/* boost ddrfreq */
-	if (ais_active) {
-		/* setup boost command */
-		cc.pid = current->pid;
-		cc.prio = CC_PRIO_HIGH;
-		cc.period_us = period_us;
-		cc.group = CC_CTL_GROUP_GRAPHIC;
-		cc.category = CC_CTL_CATEGORY_DDR_FREQ;
-		cc.response = 0;
-		cc.leader = current->tgid;
-		cc.bind_leader = true;
-		cc.status = 0;
-		cc.type = CC_CTL_TYPE_ONESHOT_NONBLOCK;
+	///* boost ddrfreq */
+	//if (ais_active) {
+	//	/* setup boost command */
+	//	cc.pid = current->pid;
+	//	cc.prio = CC_PRIO_HIGH;
+	//	cc.period_us = period_us;
+	//	cc.group = CC_CTL_GROUP_GRAPHIC;
+	//	cc.category = CC_CTL_CATEGORY_DDR_FREQ;
+	//	cc.response = 0;
+	//	cc.leader = current->tgid;
+	//	cc.bind_leader = true;
+	//	cc.status = 0;
+	//	cc.type = CC_CTL_TYPE_ONESHOT_NONBLOCK;
 
-		if (val > 0) {
-			clk_get_ddr_freq(&prev_ddr_target);
-			ddr_target = prev_ddr_target;
-			ddr_target /= 1000000;
-			ddr_target *= 2;
-			ddr_target = ddr_find_target(ddr_target);
-			prev_ddr_target = ddr_find_target(prev_ddr_target/1000000);
-			if (ddrfreq_hispeed_enable && ddrfreq_hispeed > ddr_target) {
-				ht_logv("boost ddr hispeed from %u to %u\n", ddr_target, ddrfreq_hispeed);
-				ddr_target = ddrfreq_hispeed;
-			}
-			cc.params[0] = ddr_target;
-			cc_tsk_process(&cc);
-		} else {
-			cc.type = CC_CTL_TYPE_RESET_NONBLOCK;
-			cc_tsk_process(&cc);
-		}
-	}
+	//	if (val > 0) {
+	//		clk_get_ddr_freq(&prev_ddr_target);
+	//		ddr_target = prev_ddr_target;
+	//		ddr_target /= 1000000;
+	//		ddr_target *= 2;
+	//		ddr_target = ddr_find_target(ddr_target);
+	//		prev_ddr_target = ddr_find_target(prev_ddr_target/1000000);
+	//		if (ddrfreq_hispeed_enable && ddrfreq_hispeed > ddr_target) {
+	//			ht_logv("boost ddr hispeed from %u to %u\n", ddr_target, ddrfreq_hispeed);
+	//			ddr_target = ddrfreq_hispeed;
+	//		}
+	//		cc.params[0] = ddr_target;
+	//		cc_tsk_process(&cc);
+	//	} else {
+	//		cc.type = CC_CTL_TYPE_RESET_NONBLOCK;
+	//		cc_tsk_process(&cc);
+	//	}
+	//}
 
 	if (val > 0) {
 		for (i = 0; i < HT_CLUSTERS; ++i) {
@@ -1306,6 +1343,7 @@ static void ht_collect_system_data(struct ai_parcel *p)
 	p->boost_cnt = atomic_read(&boost_cnt);
 	p->notify_start_ts_us = p->queued_ts_us;
 	p->notify_end_ts_us = ktime_to_us(ktime_get());
+	p->skin_temp = ht_get_temp_delay(HT_THERM_0);
 }
 
 static inline void ht_cpuload_helper(int clus, int cpus, struct cpuload_info *cli)
@@ -1349,6 +1387,8 @@ static long ht_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long __us
 		schedule();
 		finish_wait(&ht_perf_waitq, &wait);
 		ht_collect_system_data(&parcel);
+		ht_ioctl_retry_count = 0;
+		ht_brain_active = true;
 		if (copy_to_user((struct ai_parcel __user *) arg, &parcel, sizeof(parcel)))
 			return 0;
 		break;
@@ -1444,6 +1484,17 @@ static long ht_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long __us
 			return 0;
 		break;
 	}
+	default:
+		++ht_ioctl_retry_count;
+		if (ht_ioctl_retry_count >= HT_IOCTL_RETRY_MAX) {
+			DEFINE_WAIT(wait);
+			ht_logw("disable support from ai brain\n");
+			/* block ai observer here */
+			ht_brain_active = false;
+			prepare_to_wait(&ht_perf_waitq, &wait, TASK_INTERRUPTIBLE);
+			schedule();
+			finish_wait(&ht_perf_waitq, &wait);
+		}
 	}
 	return 0;
 }

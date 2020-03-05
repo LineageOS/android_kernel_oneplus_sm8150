@@ -181,6 +181,7 @@ struct ai_parcel {
 	u64 notify_start_ts_us;
 	u64 notify_end_ts_us;
 	u64 utils[8];
+	u32 skin_temp;
 #ifdef CONFIG_CONTROL_CENTER
 	struct cc_boost_ts cbt[CC_BOOST_TS_SIZE];
 #endif

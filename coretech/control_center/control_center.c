@@ -43,20 +43,20 @@ module_param_named(time_measure, cc_time_measure, bool, 0644);
 static bool cc_cpu_boost_enable = true;
 module_param_named(cpu_boost_enable, cc_cpu_boost_enable, bool, 0644);
 
-static bool cc_ddr_boost_enable = true;
+bool cc_ddr_boost_enable = true;
 module_param_named(ddr_boost_enable, cc_ddr_boost_enable, bool, 0644);
 
-bool cc_ddr_lower_bound_enable = false;
-module_param_named(ddr_lower_bound_enable, cc_ddr_lower_bound_enable, bool, 0644);
-
-bool cc_ddr_set_enable = false;
-module_param_named(ddr_set_enable, cc_ddr_set_enable, bool, 0644);
-
-/* FIXME
- * this is for voting, should not named as lock_
- */
-bool cc_ddr_lock_enable = true;
-module_param_named(ddr_lock_enable, cc_ddr_lock_enable, bool, 0644);
+//bool cc_ddr_lower_bound_enable = false;
+//module_param_named(ddr_lower_bound_enable, cc_ddr_lower_bound_enable, bool, 0644);
+//
+//bool cc_ddr_set_enable = false;
+//module_param_named(ddr_set_enable, cc_ddr_set_enable, bool, 0644);
+//
+///* FIXME
+// * this is for voting, should not named as lock_
+// */
+//bool cc_ddr_lock_enable = true;
+//module_param_named(ddr_lock_enable, cc_ddr_lock_enable, bool, 0644);
 
 /* record */
 static struct cc_record {
@@ -377,74 +377,78 @@ static inline u64 cc_ddr_to_devfreq(u64 val)
 	u64 ddr_aop_mapping_freq[] = { 0, 681, 768, 1017, 1353, 1555, 1804, 2092 };
 
 	/* map to devfreq whlie config is enabled */
-	if (cc_ddr_set_enable || cc_ddr_lock_enable) {
-		for (i = ARRAY_SIZE(ddr_devfreq_avail_freq) - 1; i >= 0; --i) {
-			if (val >= ddr_aop_mapping_freq[i])
-				return ddr_devfreq_avail_freq[i];
-		}
+	//if (cc_ddr_set_enable || cc_ddr_lock_enable) {
+	//	for (i = ARRAY_SIZE(ddr_devfreq_avail_freq) - 1; i >= 0; --i) {
+	//		if (val >= ddr_aop_mapping_freq[i])
+	//			return ddr_devfreq_avail_freq[i];
+	//	}
+	//}
+	for (i = ARRAY_SIZE(ddr_devfreq_avail_freq) - 1; i >= 0; --i) {
+		if (val >= ddr_aop_mapping_freq[i])
+			return ddr_devfreq_avail_freq[i];
 	}
 	return val;
 }
 
-u64 cc_cpu_find_ddr(int cpu)
-{
-	int i, len, idx = 0;
-	u64 ddr, curr;
-	struct cpufreq_policy *pol;
-	u64 *tmp_cpu, *tmp_ddr;
-	u64 *ddr_cluster0_options;
-	u64 *ddr_cluster1_options;
-
-	u64 ddr_cluster0_vote_options[5] = {
-		762, 1720, 2086, 2929, 3879
-	};
-	u64 ddr_cluster1_vote_options[9] = {
-		762, 1720, 2086, 2929, 3879, 5161, 5931, 6881, 7980
-	};
-	u64 ddr_cluster0_lock_options[5] = {
-		200, 451, 547, 768, 1017
-	};
-	u64 ddr_cluster1_lock_options[9] = {
-		200, 451, 547, 768, 1017, 1353, 1555, 1804, 2092
-	};
-	u64 cpu_cluster0_options[5] = {
-		300000, 768000, 1113600, 1478400, 1632000
-	};
-	u64 cpu_cluster1_options[9] = {
-		300000, 710400, 825600, 1056000, 1286400, 1612800, 1804800, 2649600, 3000000
-	};
-
-	if (cc_ddr_set_enable || cc_ddr_lock_enable) {
-		ddr_cluster0_options = ddr_cluster0_vote_options;
-		ddr_cluster1_options = ddr_cluster1_vote_options;
-	} else {
-		ddr_cluster0_options = ddr_cluster0_lock_options;
-		ddr_cluster1_options = ddr_cluster1_lock_options;
-	}
-
-	pol = cpufreq_cpu_get(cpu);
-	if (unlikely(!pol))
-		return 0;
-	idx = (cpu > 3) ? 1 : 0;
-	curr = pol->cur;
-	if (idx) {
-		tmp_cpu = cpu_cluster1_options;
-		tmp_ddr = ddr_cluster1_options;
-		len = ARRAY_SIZE(cpu_cluster1_options);
-	} else {
-		tmp_cpu = cpu_cluster0_options;
-		tmp_ddr = ddr_cluster0_options;
-		len = ARRAY_SIZE(cpu_cluster0_options);
-	}
-	for (i = len - 1; i >= 0; --i) {
-		if (curr > tmp_cpu[i]) {
-			ddr = tmp_ddr[min(i+1, len - 1)];
-			break;
-		}
-	}
-	cpufreq_cpu_put(pol);
-	return ddr;
-}
+//u64 cc_cpu_find_ddr(int cpu)
+//{
+//	int i, len, idx = 0;
+//	u64 ddr, curr;
+//	struct cpufreq_policy *pol;
+//	u64 *tmp_cpu, *tmp_ddr;
+//	u64 *ddr_cluster0_options;
+//	u64 *ddr_cluster1_options;
+//
+//	u64 ddr_cluster0_vote_options[5] = {
+//		762, 1720, 2086, 2929, 3879
+//	};
+//	u64 ddr_cluster1_vote_options[9] = {
+//		762, 1720, 2086, 2929, 3879, 5161, 5931, 6881, 7980
+//	};
+//	u64 ddr_cluster0_lock_options[5] = {
+//		200, 451, 547, 768, 1017
+//	};
+//	u64 ddr_cluster1_lock_options[9] = {
+//		200, 451, 547, 768, 1017, 1353, 1555, 1804, 2092
+//	};
+//	u64 cpu_cluster0_options[5] = {
+//		300000, 768000, 1113600, 1478400, 1632000
+//	};
+//	u64 cpu_cluster1_options[9] = {
+//		300000, 710400, 825600, 1056000, 1286400, 1612800, 1804800, 2649600, 3000000
+//	};
+//
+//	if (cc_ddr_set_enable || cc_ddr_lock_enable) {
+//		ddr_cluster0_options = ddr_cluster0_vote_options;
+//		ddr_cluster1_options = ddr_cluster1_vote_options;
+//	} else {
+//		ddr_cluster0_options = ddr_cluster0_lock_options;
+//		ddr_cluster1_options = ddr_cluster1_lock_options;
+//	}
+//
+//	pol = cpufreq_cpu_get(cpu);
+//	if (unlikely(!pol))
+//		return 0;
+//	idx = (cpu > 3) ? 1 : 0;
+//	curr = pol->cur;
+//	if (idx) {
+//		tmp_cpu = cpu_cluster1_options;
+//		tmp_ddr = ddr_cluster1_options;
+//		len = ARRAY_SIZE(cpu_cluster1_options);
+//	} else {
+//		tmp_cpu = cpu_cluster0_options;
+//		tmp_ddr = ddr_cluster0_options;
+//		len = ARRAY_SIZE(cpu_cluster0_options);
+//	}
+//	for (i = len - 1; i >= 0; --i) {
+//		if (curr > tmp_cpu[i]) {
+//			ddr = tmp_ddr[min(i+1, len - 1)];
+//			break;
+//		}
+//	}
+//	cpufreq_cpu_put(pol);
+//	return ddr;
+//}
 
 static void cc_adjust_cpufreq_boost(struct cc_command* cc)
 {
@@ -548,52 +552,78 @@ static void cc_query_ddrfreq(struct cc_command* cc)
 }
 
 atomic_t cc_expect_ddrfreq;
-
-static void cc_adjust_ddr_freq(struct cc_command *cc)
-{
 #define CC_DDR_RESET_VAL 0
+//static void cc_adjust_ddr_freq(struct cc_command *cc)
+//{
+//	u64 val = cc->params[0];
+//	u64 cur;
+//
+//	if (!cc_ddr_boost_enable)
+//		return;
+//
+//	val = cc_ddr_to_devfreq(val);
+//
+//	if (cc_is_nonblock(cc))
+//		return;
+//
+//	if (cc_ddr_lower_bound_enable) {
+//		val = max(cc_cpu_find_ddr(0), val);
+//		val = max(cc_cpu_find_ddr(4), val);
+//	}
+//
+//	if (cc->type == CC_CTL_TYPE_RESET)
+//		val = CC_DDR_RESET_VAL;
+//
+//	/* FIXME
+//	 * check cur & val not guarantee ddrfreq is locked or not */
+//	if (cc_ddr_set_enable || cc_ddr_lock_enable) {
+//		atomic_set(&cc_expect_ddrfreq, val);
+//	} else {
+//		/* check if need update */
+//		cur = query_ddrfreq();
+//
+//		if (cur != val)
+//			aop_lock_ddr_freq(val);
+//	}
+//}
+
+static void cc_adjust_ddr_voting_freq(struct cc_command *cc)
+{
+	u64 val = cc->params[0];
+
+	if (!cc_ddr_boost_enable)
+		return;
+
+	if (cc_is_nonblock(cc))
+		return;
+
+	val = cc_ddr_to_devfreq(val);
+
+	if (cc->type == CC_CTL_TYPE_RESET)
+		val = CC_DDR_RESET_VAL;
+
+	atomic_set(&cc_expect_ddrfreq, val);
+}
+
+static void cc_adjust_ddr_lock_freq(struct cc_command *cc)
+{
 	u64 val = cc->params[0];
 	u64 cur;
 
 	if (!cc_ddr_boost_enable)
 		return;
 
-#ifdef CONFIG_AIGOV
-	if (aigov_hooked()) {
-		if (cc->type == CC_CTL_TYPE_RESET ||
-			cc->type == CC_CTL_TYPE_RESET_NONBLOCK)
-			aigov_set_ddrfreq(0);
-		else
-			aigov_set_ddrfreq(cc->params[0]);
-		return;
-	}
-#endif
-
-	val = cc_ddr_to_devfreq(val);
-
 	if (cc_is_nonblock(cc))
 		return;
-
-	if (cc_ddr_lower_bound_enable) {
-		val = max(cc_cpu_find_ddr(0), val);
-		val = max(cc_cpu_find_ddr(4), val);
-	}
 
 	if (cc->type == CC_CTL_TYPE_RESET)
 		val = CC_DDR_RESET_VAL;
 
-	/* FIXME
-	 * check cur & val not guarantee ddrfreq is locked or not */
-	if (cc_ddr_set_enable || cc_ddr_lock_enable) {
-		atomic_set(&cc_expect_ddrfreq, val);
-	} else {
-		/* check if need update */
-		cur = query_ddrfreq();
+	/* check if need update */
+	cur = query_ddrfreq();
 
-		if (cur != val)
-			aop_lock_ddr_freq(val);
-	}
-
+	if (cur != val)
+		aop_lock_ddr_freq(val);
 }
 
 static void cc_adjust_sched(struct cc_command *cc)
@@ -644,9 +674,13 @@ void cc_process(struct cc_command* cc)
 		cc_logv("cpufreq_boost: type: %u, cluster: %llu target: %llu\n", cc->type, cc->params[0], cc->params[1]);
 		cc_adjust_cpufreq_boost(cc);
 		break;
-	case CC_CTL_CATEGORY_DDR_FREQ:
-		cc_logv("ddrfreq: type: %u, target: %llu\n", cc->type, cc->params[0]);
-		cc_adjust_ddr_freq(cc);
+	case CC_CTL_CATEGORY_DDR_VOTING_FREQ:
+		cc_logv("ddrfreq voting: type: %u, target: %llu\n", cc->type, cc->params[0]);
+		cc_adjust_ddr_voting_freq(cc);
+		break;
+	case CC_CTL_CATEGORY_DDR_LOCK_FREQ:
+		cc_logv("ddrfreq lock: type: %u, target: %llu\n", cc->type, cc->params[0]);
+		cc_adjust_ddr_lock_freq(cc);
 		break;
 	case CC_CTL_CATEGORY_SCHED_PRIME_BOOST:
 		cc_logv("sched prime boost: type: %u, param: %llu\n", cc->type, cc->params[0]);
@@ -1337,7 +1371,12 @@ static int cc_dump_record_show(char *buf, const struct kernel_param *kp)
 		case CC_CTL_CATEGORY_CLUS_1_FREQ: tag = "cpufreq_1:"; break;
 		case CC_CTL_CATEGORY_CLUS_2_FREQ: tag = "cpufreq_2:"; break;
 		case CC_CTL_CATEGORY_CPU_FREQ_BOOST: tag = "cpufreq_boost:"; break;
-		case CC_CTL_CATEGORY_DDR_FREQ: tag = "ddrfreq:"; break;
+		case CC_CTL_CATEGORY_DDR_VOTING_FREQ:
+			tag = "ddrfreq voting:";
+			break;
+		case CC_CTL_CATEGORY_DDR_LOCK_FREQ:
+			tag = "ddrfreq lock:";
+			break;
 		case CC_CTL_CATEGORY_SCHED_PRIME_BOOST: tag = "sched_prime_boost:"; break;
 		case CC_CTL_CATEGORY_CLUS_0_FREQ_QUERY: tag = "cpufreq_0_query:"; break;
 		case CC_CTL_CATEGORY_CLUS_1_FREQ_QUERY: tag = "cpufreq_1_query:"; break;
