@@ -12,9 +12,8 @@ extern unsigned int  sysctl_hung_task_panic;
 extern unsigned long sysctl_hung_task_timeout_secs;
 extern int sysctl_hung_task_warnings;
 extern int sysctl_hung_task_selective_monitoring;
-extern int proc_dohung_task_timeout_secs(struct ctl_table *table, int write,
-					 void __user *buffer,
-					 size_t *lenp, loff_t *ppos);
+int proc_dohung_task_timeout_secs(struct ctl_table *table, int write,
+		void *buffer, size_t *lenp, loff_t *ppos);
 #else
 /* Avoid need for ifdefs elsewhere in the code */
 enum { sysctl_hung_task_timeout_secs = 0 };
@@ -82,8 +81,7 @@ extern __read_mostly unsigned int sysctl_sched_nr_migrate;
 extern __read_mostly unsigned int sysctl_sched_time_avg;
 
 int sched_proc_update_handler(struct ctl_table *table, int write,
-		void __user *buffer, size_t *length,
-		loff_t *ppos);
+		void *buffer, size_t *length, loff_t *ppos);
 #endif
 
 extern int sched_boost_handler(struct ctl_table *table, int write,
@@ -109,25 +107,16 @@ extern unsigned int sysctl_sched_autogroup_enabled;
 extern int sysctl_sched_rr_timeslice;
 extern int sched_rr_timeslice;
 
-extern int sched_rr_handler(struct ctl_table *table, int write,
-		void __user *buffer, size_t *lenp,
-		loff_t *ppos);
-
-extern int sched_rt_handler(struct ctl_table *table, int write,
-		void __user *buffer, size_t *lenp,
-		loff_t *ppos);
-
-extern int sched_updown_migrate_handler(struct ctl_table *table,
-					int write, void __user *buffer,
-					size_t *lenp, loff_t *ppos);
-
-extern int sysctl_numa_balancing(struct ctl_table *table, int write,
-				 void __user *buffer, size_t *lenp,
-				 loff_t *ppos);
-
-extern int sysctl_schedstats(struct ctl_table *table, int write,
-				 void __user *buffer, size_t *lenp,
-				 loff_t *ppos);
+int sched_rr_handler(struct ctl_table *table, int write, void *buffer,
+		size_t *lenp, loff_t *ppos);
+int sched_rt_handler(struct ctl_table *table, int write, void *buffer,
+		size_t *lenp, loff_t *ppos);
+int sched_updown_migrate_handler(struct ctl_table *table, int write, void *buffer,
+                size_t *lenp, loff_t *ppos);
+int sysctl_numa_balancing(struct ctl_table *table, int write, void *buffer,
+		size_t *lenp, loff_t *ppos);
+int sysctl_schedstats(struct ctl_table *table, int write, void *buffer,
+		size_t *lenp, loff_t *ppos);
 
 #ifdef CONFIG_SCHED_WALT
 extern int sched_little_cluster_coloc_fmin_khz_handler(struct ctl_table *table,
