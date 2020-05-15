@@ -2106,3 +2106,6 @@ config ASN1
 source "kernel/Kconfig.locks"
 
 source "init/Kconfig.gki"
+
+config ARCH_HAS_NON_OVERLAPPING_ADDRESS_SPACE
+	bool
