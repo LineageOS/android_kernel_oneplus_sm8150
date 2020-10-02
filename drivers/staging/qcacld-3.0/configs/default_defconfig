@@ -165,7 +165,6 @@ ifneq ($(CONFIG_MOBILE_ROUTER), y)
 CONFIG_QCOM_TDLS := y
 
 CONFIG_WLAN_SYSFS := y
-CONFIG_WLAN_POWER_DEBUG := y
 #Enable Beacon Reception Stats
 CONFIG_FEATURE_BECN_STATS := y
 endif
@@ -953,6 +952,9 @@ endif
 
 #Enable Desc Debug Check
 CONFIG_RX_DESC_DEBUG_CHECK:= y
+
+#Enable Power Debug
+CONFIG_WLAN_POWER_DEBUG := y
 
 #Flag to enable hdd memory dump feature
 CONFIG_FEATURE_MEMDUMP_ENABLE := y
