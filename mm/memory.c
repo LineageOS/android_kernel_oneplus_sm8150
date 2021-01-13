@@ -3032,6 +3032,29 @@ static int do_wp_page(struct vm_fault *vmf)
 	 */
 	if (PageAnon(vmf->page) && !PageKsm(vmf->page)) {
 		int total_map_swapcount;
+		/*
+		 * Optimize away the trylock_page for mapcount > 1.
+		 *
+		 * We need to provide full accuracy and avoid spurious
+		 * COWs to avoid breaking the long term GUP pins if
+		 * the anon page is exclusive as in mapcount == 1. If
+		 * we find the mapcount at any time elevated above 1
+		 * for a non THP page, it means any GUP pin already
+		 * might have lost coherency.
+		 *
+		 * It is possible that if mapcount is found > 1 while
+		 * munmap or exit or MADV_DONTNEED in the parent is
+		 * running concurrently to the COW fault and that the
+		 * mapcount is concurrently on its way to return equal
+		 * 1, but no guarantee was provided anyway in such
+		 * case. The coherency between the GUP pin and the CPU
+		 * could have been lost if only the timing was any
+		 * different. So all it matters to avoid breaking long
+		 * term GUP pins, is that there are no false positive
+		 * COWs when mapcount is found equal 1.
+		 */
+		if (page_mapcount(vmf->page) > 1)
+			goto copy;
 		if (!trylock_page(vmf->page)) {
 			get_page(vmf->page);
 			pte_unmap_unlock(vmf->pte, vmf->ptl);
@@ -3069,7 +3092,7 @@ static int do_wp_page(struct vm_fault *vmf)
 					(VM_WRITE|VM_SHARED))) {
 		return wp_page_shared(vmf);
 	}
-
+copy:
 	/*
 	 * Ok, we need to copy. Oh, well..
 	 */
