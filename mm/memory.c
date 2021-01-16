@@ -2887,7 +2887,7 @@ static int wp_page_unshare(struct vm_fault *vmf)
 		 */
 		if (!smart_lock_page(vmf))
 			return 0;
-		must_unshare = !reuse_swap_page(vmf->page, NULL);
+		must_unshare = !can_read_pin_swap_page(vmf->page);
 		unlock_page(vmf->page);
 		if (must_unshare)
 			return __wp_page_unshare(vmf);

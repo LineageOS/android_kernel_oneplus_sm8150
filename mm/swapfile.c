@@ -1572,6 +1572,38 @@ static int page_trans_huge_map_swapcount(struct page *page, int *total_mapcount,
 #endif
 
 /*
+ * Very similar in functionality to reuse_swap_page().
+ *
+ * reuse_swap_page() and can_read_pin_swap_page() both answer if the
+ * page is exclusive or not, but for two different purposes.
+ *
+ * reuse_swap_page() is invoked to know if a page is exclusive so it
+ * can be made writable.
+ *
+ * can_read_pin_swap_page() is invoked to know if the page is
+ * exclusive so a read GUP pin can be taken, but the page isn't going
+ * to be made writable.
+ *
+ * So there is a different retval in the case of PageKsm(). In
+ * addition can_read_pin_swap_page() will not alter the mapping and so
+ * it should not cause any side effects to the page type. It is also a
+ * readonly PIN so there's no concern for stable pages.
+ */
+bool can_read_pin_swap_page(struct page *page)
+{
+	VM_BUG_ON_PAGE(!PageLocked(page), page);
+
+	/*
+	 * If the !PageKsm changed to PageKsm from under us before the
+	 * page lock was taken, always allow GUP pins on PageKsm.
+	 */
+	if (unlikely(PageKsm(page)))
+		return true;
+
+	return page_trans_huge_map_swapcount(page, NULL, NULL) <= 1;
+}
+
+/*
  * We can write to an anon page without COW if there are no other references
  * to it.  And as a side-effect, free up its swap: because the old content
  * on disk will never be read, and seeking back there to write new content

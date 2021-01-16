@@ -45,7 +45,7 @@ static bool gup_must_unshare_slowpath(struct page *page)
 	 */
 	if (!trylock_page(page))
 		return true;
-	must_unshare = !reuse_swap_page(page, NULL);
+	must_unshare = !can_read_pin_swap_page(page);
 	unlock_page(page);
 	return must_unshare;
 }
