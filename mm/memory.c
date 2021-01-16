@@ -2645,7 +2645,7 @@ static inline void wp_page_reuse(struct vm_fault *vmf)
  *   held to the old page, as well as updating the rmap.
  * - In any case, unlock the PTL and drop the reference we took to the old page.
  */
-static int wp_page_copy(struct vm_fault *vmf)
+static int __wp_page_copy(struct vm_fault *vmf, bool unshare)
 {
 	struct vm_area_struct *vma = vmf->vma;
 	struct mm_struct *mm = vma->vm_mm;
@@ -2700,7 +2700,17 @@ static int wp_page_copy(struct vm_fault *vmf)
 		}
 		flush_cache_page(vma, vmf->address, pte_pfn(vmf->orig_pte));
 		entry = mk_pte(new_page, vmf->vma_page_prot);
-		entry = maybe_mkwrite(pte_mkdirty(entry), vmf->vma_flags);
+		if (likely(!unshare))
+			entry = maybe_mkwrite(pte_mkdirty(entry), vmf->vma_flags);
+		else {
+			BUG_ON(pte_write(entry));
+			if (pte_soft_dirty(vmf->orig_pte))
+				entry = pte_mksoft_dirty(entry);
+#ifdef CONFIG_HAVE_ARCH_USERFAULTFD_WP
+			if (pte_uffd_wp(vmf->orig_pte))
+				entry = pte_mkuffd_wp(entry);
+#endif
+		}
 		/*
 		 * Clear the pte entry and flush it first, before updating the
 		 * pte with the new entry. This will avoid a race condition
@@ -2769,7 +2779,7 @@ static int wp_page_copy(struct vm_fault *vmf)
 		}
 		put_page(old_page);
 	}
-	return page_copied ? VM_FAULT_WRITE : 0;
+	return page_copied && likely(!unshare) ? VM_FAULT_WRITE : 0;
 out_uncharge:
 	mem_cgroup_cancel_charge(new_page, memcg, false);
 out_free_new:
@@ -2778,6 +2788,112 @@ out:
 	if (old_page)
 		put_page(old_page);
 	return ret;
+}
+
+static __always_inline int wp_page_copy(struct vm_fault *vmf)
+{
+	return __wp_page_copy(vmf, false);
+}
+
+static __always_inline int wp_page_unshare_copy(struct vm_fault *vmf)
+{
+	return __wp_page_copy(vmf, true);
+}
+
+static bool smart_lock_page(struct vm_fault *vmf)
+{
+	if (!trylock_page(vmf->page)) {
+		get_page(vmf->page);
+		pte_unmap_unlock(vmf->pte, vmf->ptl);
+		lock_page(vmf->page);
+		vmf->pte = pte_offset_map_lock(vmf->vma->vm_mm, vmf->pmd,
+					       vmf->address,
+					       &vmf->ptl);
+		if (!pte_same(*vmf->pte, vmf->orig_pte)) {
+			unlock_page(vmf->page);
+			pte_unmap_unlock(vmf->pte, vmf->ptl);
+			put_page(vmf->page);
+			return false;
+		}
+		put_page(vmf->page);
+	}
+	return true;
+}
+
+static int __wp_page_unshare(struct vm_fault *vmf)
+{
+	get_page(vmf->page);
+	pte_unmap_unlock(vmf->pte, vmf->ptl);
+	return wp_page_unshare_copy(vmf);
+}
+
+/*
+ * After a read page pin (i.e. FOLL_WRITE not set) is taken on a
+ * shared anonymous COW page, its holder can read the page content. If
+ * the holder of the page pin will then unmap the page from its "mm"
+ * the mapcount will not be elevated above 1 anymore. If then the
+ * other "mm" still sharing the page writes to the page the
+ * copy-on-write fault will run.
+ *
+ * During the COW fault in the above scenario, all that can be
+ * measured is an elevated page_count higher than 1 and an exclusive
+ * mapcount equal 1. It is not possible to disambiguate the above
+ * malicious case (b) from all the normal non malicious use cases (a).
+ *
+ * a) the page pin was taken by the mm that is running the
+ *    copy-on-write fault
+ *
+ * b) the page pin was maliciously taken by another mm that unmapped
+ *    the page from its pagetables, despite it's still holding the
+ *    page pin on it
+ *
+ * If the COW fault decides to copy the page, it'll break all normal
+ * use cases (a) of readonly long term page pins that require the page
+ * pin and the elevated page_count above 1 to act as anchor for the
+ * physical address in the pagetable.
+ *
+ * If instead the COW fault decides to reuse the page, the legitimate
+ * use cases in (a) will keep functioning correctly, but the malicious
+ * pin in (b) will retain access to a page that become writable and
+ * private to an "mm" that the holder of the page pin is not supposed
+ * to gain access to.
+ *
+ * So it is effectively impossible to resolve the COW fault, unless
+ * any page with mapcount higher than 1 is un-shared before taking the
+ * page pin which is what the un-share copy-on-read fault is about.
+ *
+ * So this new kind of page fault is very similar to the copy on write
+ * fault, but it differs in having to keep the new page wrprotected,
+ * if it was found wrprotected before the copy took place.
+ *
+ * This un-sharing copy-on-ready event is only needed if the MMU
+ * notifier isn't supported by the holder of the page pin. If the MMU
+ * notifier was backing the page pin, the page pin would have been
+ * released before the page could have been unmapped.
+ */
+static int wp_page_unshare(struct vm_fault *vmf)
+	__releases(vmf->ptl)
+{
+	vmf->page = vm_normal_page(vmf->vma, vmf->address, vmf->orig_pte);
+	if (vmf->page && PageAnon(vmf->page)) {
+		bool must_unshare;
+		if (page_mapcount(vmf->page) > 1)
+			return __wp_page_unshare(vmf);
+		/*
+		 * NOTE: the mapcount of the anon page is 1 here, so
+		 * there's not going to be much contention on the page
+		 * lock and this call won't risk to end up waiting on
+		 * a long waitqueue.
+		 */
+		if (!smart_lock_page(vmf))
+			return 0;
+		must_unshare = !reuse_swap_page(vmf->page, NULL);
+		unlock_page(vmf->page);
+		if (must_unshare)
+			return __wp_page_unshare(vmf);
+	}
+	pte_unmap_unlock(vmf->pte, vmf->ptl);
+	return 0;
 }
 
 /**
@@ -4277,6 +4393,8 @@ static int handle_pte_fault(struct vm_fault *vmf)
 	}
 
 	if (!pte_present(vmf->orig_pte)) {
+		if (unlikely(vmf->flags & FAULT_FLAG_UNSHARE))
+			return 0;
 #ifdef CONFIG_MEMPLUS
 		count_vm_event(SWAPFAULT);
 #endif
@@ -4290,9 +4408,13 @@ static int handle_pte_fault(struct vm_fault *vmf)
 	entry = vmf->orig_pte;
 	if (unlikely(!pte_same(*vmf->pte, entry)))
 		goto unlock;
-	if (vmf->flags & FAULT_FLAG_WRITE) {
-		if (!pte_write(entry))
-			return do_wp_page(vmf);
+	if (vmf->flags & (FAULT_FLAG_WRITE|FAULT_FLAG_UNSHARE)) {
+		if (!pte_write(entry)) {
+			if (vmf->flags & FAULT_FLAG_WRITE)
+				return do_wp_page(vmf);
+			else
+				return wp_page_unshare(vmf);
+		}
 		entry = pte_mkdirty(entry);
 	}
 	entry = pte_mkyoung(entry);

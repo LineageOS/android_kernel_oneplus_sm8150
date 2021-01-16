@@ -306,6 +306,12 @@ extern pgprot_t protection_map[16];
 /* Speculative fault, not holding mmap_sem */
 #define FAULT_FLAG_SPECULATIVE	0x200
 #define FAULT_FLAG_PREFAULT_OLD 0x400   /* Make faultaround ptes old */
+/* @FAULT_FLAG_UNSHARE: GUP invoked a COR fault to unshare the wrprotected page. */
+#define FAULT_FLAG_UNSHARE	0x80000000
+
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+#error "the THP part of FOLL_UNSHARE+COR solution has not been backported yet"
+#endif
 
 #define FAULT_FLAG_TRACE \
 	{ FAULT_FLAG_WRITE,		"WRITE" }, \
