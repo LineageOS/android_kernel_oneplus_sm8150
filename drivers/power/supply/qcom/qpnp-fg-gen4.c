@@ -4534,7 +4534,11 @@ static int fg_psy_get_property(struct power_supply *psy,
 		rc = ttf_get_time_to_full(chip->ttf, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
-		rc = ttf_get_time_to_full(chip->ttf, &pval->intval);
+		if (fg->use_external_fg && external_fg
+				&& external_fg->fast_chg_started())
+			pval->intval = -ENODATA;
+		else
+			rc = ttf_get_time_to_full(chip->ttf, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG:
 		rc = ttf_get_time_to_empty(chip->ttf, &pval->intval);
