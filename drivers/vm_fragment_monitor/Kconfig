@@ -1,0 +1,3 @@
+config VM_FRAGMENT_MONITOR
+    bool "monitor virtual memory fragment"
+    default n
