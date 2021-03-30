@@ -589,6 +589,10 @@ struct wcd_mbhc {
 	struct snd_soc_jack button_jack;
 	struct mutex codec_resource_lock;
 
+	bool use_usbc_detect;
+	bool usbc_analog_status;
+	struct delayed_work mbhc_usbc_detect_dwork;
+
 	/* Holds codec specific interrupt mapping */
 	const struct wcd_mbhc_intr *intr_ids;
 

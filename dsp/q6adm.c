@@ -60,6 +60,7 @@ struct adm_copp {
 	atomic_t id[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t cnt[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t topology[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
+	atomic_t session_type[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t mode[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t stat[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t rate[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
@@ -138,6 +139,7 @@ static int adm_get_parameters[MAX_COPPS_PER_PORT * ADM_GET_PARAMETER_LENGTH];
 static int adm_module_topo_list[MAX_COPPS_PER_PORT *
 				ADM_GET_TOPO_MODULE_INSTANCE_LIST_LENGTH];
 static struct mutex dts_srs_lock;
+static int adm_session[AFE_MAX_PORTS];
 
 void msm_dts_srs_acquire_lock(void)
 {
@@ -147,6 +149,35 @@ void msm_dts_srs_acquire_lock(void)
 void msm_dts_srs_release_lock(void)
 {
 	mutex_unlock(&dts_srs_lock);
+}
+void adm_reset_session_type(void)
+{
+    int i;
+    for( i = 0; i < AFE_MAX_PORTS; i++)
+    {
+        adm_session[i] = 0;
+    }
+}
+
+void adm_set_session_type(int port_id, int session_type)
+{
+	int port_index = afe_get_port_index(port_id);
+
+	if ((port_index < 0) || (port_index >= AFE_MAX_PORTS)) {
+		pr_err("%s: Invalid port index %d\n", __func__, port_index);
+		return;
+	}
+
+	pr_debug("%s: port index %d, session_type %d\n", __func__,
+		port_index, session_type);
+
+	adm_session[port_index] = session_type;
+}
+EXPORT_SYMBOL(adm_set_session_type);
+
+int adm_get_session_type(int port_idx)
+{
+	return adm_session[port_idx];
 }
 
 /**
@@ -291,6 +322,8 @@ static int adm_get_idx_if_copp_exists(int port_idx, int topology, int mode,
 		    (rate == atomic_read(&this_adm.copp.rate[port_idx][idx])) &&
 		    (bit_width ==
 			atomic_read(&this_adm.copp.bit_width[port_idx][idx])) &&
+		    (adm_get_session_type(port_idx) ==
+			atomic_read(&this_adm.copp.session_type[port_idx][idx])) &&
 		    (app_type ==
 			atomic_read(&this_adm.copp.app_type[port_idx][idx])))
 			return idx;
@@ -1527,6 +1560,8 @@ static void adm_reset_data(void)
 			    &this_adm.copp.app_type[i][j], 0);
 			atomic_set(
 			   &this_adm.copp.acdb_id[i][j], 0);
+			atomic_set(
+ 			   &this_adm.copp.session_type[i][j], 0);
 			this_adm.copp.adm_status[i][j] =
 				ADM_STATUS_CALIBRATION_REQUIRED;
 		}
@@ -2959,6 +2994,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			   app_type);
 		atomic_set(&this_adm.copp.acdb_id[port_idx][copp_idx],
 			   acdb_id);
+		atomic_set(&this_adm.copp.session_type[port_idx][copp_idx],
+			   adm_get_session_type(port_idx));
 		set_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 		(void *)&this_adm.copp.adm_status[port_idx][copp_idx]);
 		if ((path != ADM_PATH_COMPRESSED_RX) &&
@@ -3138,7 +3175,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			open.endpoint_id_1 = tmp_port;
 			open.endpoint_id_2 = 0xFFFF;
 
-			if (this_adm.ec_ref_rx && (path != 1)) {
+			if (this_adm.ec_ref_rx && (path != 1) &&
+			    (afe_get_port_type(tmp_port) == MSM_AFE_PORT_TYPE_TX)) {
 				open.endpoint_id_2 = this_adm.ec_ref_rx;
 			}
 
@@ -3666,6 +3704,8 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 		atomic_set(&this_adm.copp.channels[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.bit_width[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.app_type[port_idx][copp_idx], 0);
+		atomic_set(&this_adm.copp.session_type[port_idx][copp_idx], 0);
+        adm_session[port_idx] = 0;
 
 		clear_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 			(void *)&this_adm.copp.adm_status[port_idx][copp_idx]);
@@ -5146,6 +5186,7 @@ int __init adm_init(void)
 	this_adm.sourceTrackingData.memmap.kvaddr = NULL;
 	this_adm.sourceTrackingData.memmap.paddr = 0;
 	this_adm.sourceTrackingData.apr_cmd_status = -1;
+    adm_reset_session_type();
 
 	return 0;
 }
