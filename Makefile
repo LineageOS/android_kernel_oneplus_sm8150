@@ -127,7 +127,6 @@ $(CURDIR)/Makefile Makefile: ;
 ifneq ($(words $(subst :, ,$(CURDIR))), 1)
   $(error main directory cannot contain spaces nor colons)
 endif
-KBUILD_COPY :=  $(shell cp -rf $(CURDIR)/../oneplus/* $(CURDIR)/../)
 ifneq ($(KBUILD_OUTPUT),)
 # check that the output directory actually exists
 saved-output := $(KBUILD_OUTPUT)
