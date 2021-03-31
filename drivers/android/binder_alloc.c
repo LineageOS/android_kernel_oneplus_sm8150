@@ -32,7 +32,7 @@
 #include <linux/highmem.h>
 #include "binder_alloc.h"
 #include "binder_trace.h"
-#include <../coretech/uxcore/opchain_helper.h>
+#include <oneplus/uxcore/opchain_helper.h>
 #ifdef CONFIG_OP_FREEZER
 // add for op freeze manager
 #include <oneplus/op_freezer/op_freezer.h>

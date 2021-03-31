@@ -33,7 +33,7 @@
 #include <linux/smp.h>
 
 #ifdef CONFIG_OPCHAIN
-#include <../coretech/uxcore/opchain_helper.h>
+#include <oneplus/uxcore/opchain_helper.h>
 #endif
 
 #ifdef CONFIG_CONTROL_CENTER

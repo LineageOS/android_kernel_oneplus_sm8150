@@ -43,7 +43,7 @@
 #include <linux/oem/oneplus_healthinfo.h>
 #endif
 
-#include "../coretech/uxcore/opchain_helper.h"
+#include <oneplus/uxcore/opchain_helper.h>
 
 #ifdef CONFIG_HOUSTON
 #include <oneplus/houston/houston_helper.h>

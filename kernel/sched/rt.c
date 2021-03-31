@@ -15,7 +15,7 @@
 #endif
 #include "walt.h"
 
-#include "../coretech/uxcore/opchain_helper.h"
+#include <oneplus/uxcore/opchain_helper.h>
 
 #ifdef CONFIG_CONTROL_CENTER
 #include <linux/oem/control_center.h>
