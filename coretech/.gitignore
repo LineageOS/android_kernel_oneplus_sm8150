@@ -2,6 +2,7 @@ uxcore/*
 !uxcore/opchain_helper.c
 !uxcore/opchain_helper.h
 !uxcore/opchain_define.h
+!uxcore/Makefile
 memplus/*
 !memplus/memplus_helper.c
 !memplus/memplus_helper.h
