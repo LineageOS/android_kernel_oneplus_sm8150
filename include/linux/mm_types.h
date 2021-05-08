@@ -374,6 +374,14 @@ struct core_state {
 
 struct kioctx_table;
 struct mm_struct {
+	struct {
+		struct rw_semaphore mmap_sem;
+		unsigned long saved_auxv[AT_VECTOR_SIZE]; /* for /proc/PID/auxv */
+		struct core_state *core_state; /* coredumping support */
+		/* store ref to file /proc/<pid>/exe symlink points to */
+		struct file __rcu *exe_file;
+		spinlock_t page_table_lock;		/* Protects page tables and some counters */
+	}  __randomize_layout ____cacheline_aligned_in_smp;
 	struct vm_area_struct *mmap;		/* list of VMAs */
 	struct rb_root mm_rb;
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
@@ -422,8 +430,6 @@ struct mm_struct {
 #endif
 	int map_count;				/* number of VMAs */
 
-	spinlock_t page_table_lock;		/* Protects page tables and some counters */
-	struct rw_semaphore mmap_sem;
 
 	struct list_head mmlist;		/* List of maybe swapped mm's.	These are globally strung
 						 * together off init_mm.mmlist, and are protected
@@ -447,7 +453,6 @@ struct mm_struct {
 	unsigned long start_brk, brk, start_stack;
 	unsigned long arg_start, arg_end, env_start, env_end;
 
-	unsigned long saved_auxv[AT_VECTOR_SIZE]; /* for /proc/PID/auxv */
 
 	/*
 	 * Special counters, in some configurations protected by the
@@ -464,7 +469,6 @@ struct mm_struct {
 
 	unsigned long flags; /* Must use atomic bitops to access the bits */
 
-	struct core_state *core_state; /* coredumping support */
 #ifdef CONFIG_MEMBARRIER
 	atomic_t membarrier_state;
 #endif
@@ -487,8 +491,6 @@ struct mm_struct {
 #endif
 	struct user_namespace *user_ns;
 
-	/* store ref to file /proc/<pid>/exe symlink points to */
-	struct file __rcu *exe_file;
 #ifdef CONFIG_MMU_NOTIFIER
 	struct mmu_notifier_mm *mmu_notifier_mm;
 #endif

@@ -2461,6 +2461,9 @@ static void sighand_ctor(void *data)
 
 void __init proc_caches_init(void)
 {
+	unsigned int mm_size;
+	struct mm_struct *mm_check = NULL;
+
 	sighand_cachep = kmem_cache_create("sighand_cache",
 			sizeof(struct sighand_struct), 0,
 			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_TYPESAFE_BY_RCU|
@@ -2484,6 +2487,14 @@ void __init proc_caches_init(void)
 	 * maximum number of CPU's we can ever have.  The cpumask_allocation
 	 * is at the end of the structure, exactly for that reason.
 	 */
+	mm_size = sizeof(struct mm_struct) + cpumask_size();
+
+	/*
+	 * enforce that mmap_lock and page_table_lock are located on
+	 * two different cachelines.
+	 */
+	BUILD_BUG_ON((long) &mm_check->page_table_lock -
+		     (long) &mm_check->mmap_sem < L1_CACHE_BYTES);
 	mm_cachep = kmem_cache_create("mm_struct",
 			sizeof(struct mm_struct), ARCH_MIN_MMSTRUCT_ALIGN,
 			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT,
