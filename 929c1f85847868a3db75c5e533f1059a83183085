@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7e6ab67d_a3889b64",
+        "filename": "drivers/gpu/drm/msm/sde/sde_crtc.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 3551,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2021-05-14T17:02:24Z",
+      "side": 0,
+      "message": "you don\u0027t care about this?",
+      "revId": "929c1f85847868a3db75c5e533f1059a83183085",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": true
+    }
+  ]
+}
