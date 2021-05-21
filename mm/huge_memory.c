@@ -1,3 +1,4 @@
+
 /*
  *  Copyright (C) 2009  Red Hat, Inc.
  *
@@ -1820,6 +1821,32 @@ bool move_huge_pmd(struct vm_area_struct *vma, unsigned long old_addr,
 	return false;
 }
 
+/* this checks if we're allowed to set the pgtable of a COW mapping writable */
+static inline bool is_cow_writable(unsigned long vm_flags,
+				   pmd_t pmd, bool prot_numa)
+{
+	bool reuse;
+	struct page *page;
+	if (prot_numa)
+		return false;
+	if (!is_cow_mapping(vm_flags) || !(vm_flags & VM_WRITE))
+		return false;
+#ifdef CONFIG_HAVE_ARCH_USERFAULTFD_WP
+	if (pmd_uffd_wp(pmd))
+		return false;
+#endif
+	page = pmd_page(pmd);
+	if (!PageTransHugeAnon(page))
+		return false;
+	if (page_trans_huge_anon_shared(page))
+		return false;
+	if (!trylock_page(page))
+		return false;
+	reuse = reuse_swap_page(page, NULL);
+	unlock_page(page);
+	return reuse;
+}
+
 /*
  * Returns
  *  - 0 if PMD could not be locked
@@ -1834,6 +1861,7 @@ int change_huge_pmd(struct vm_area_struct *vma, pmd_t *pmd,
 	pmd_t entry;
 	bool preserve_write;
 	int ret;
+	bool dirty_accountable = cp_flags & MM_CP_DIRTY_ACCT;
 
 	ptl = __pmd_trans_huge_lock(pmd, vma);
 	if (!ptl)
@@ -1911,8 +1939,13 @@ int change_huge_pmd(struct vm_area_struct *vma, pmd_t *pmd,
 	if (preserve_write)
 		entry = pmd_mk_savedwrite(entry);
 	ret = HPAGE_PMD_NR;
+	if ((dirty_accountable ||
+	     is_cow_writable(vma->vm_flags, entry, prot_numa)) &&
+	    pmd_dirty(entry) &&
+	    (pmd_soft_dirty(entry) || !(vma->vm_flags & VM_SOFTDIRTY))) {
+		entry = pmd_mkwrite(entry);
+	}
 	set_pmd_at(mm, addr, pmd, entry);
-	BUG_ON(vma_is_anonymous(vma) && !preserve_write && pmd_write(entry));
 unlock:
 	spin_unlock(ptl);
 	return ret;
