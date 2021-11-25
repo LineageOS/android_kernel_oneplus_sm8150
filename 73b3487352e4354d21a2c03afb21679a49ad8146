@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "c7062973_a6b0878b",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 28795
+      },
+      "writtenOn": "2021-11-25T11:01:20Z",
+      "side": 1,
+      "message": "DNM for lineage-19.0",
+      "revId": "73b3487352e4354d21a2c03afb21679a49ad8146",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
