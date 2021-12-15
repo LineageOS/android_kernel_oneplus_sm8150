@@ -2561,13 +2561,6 @@ struct page *follow_page_mask(struct vm_area_struct *vma,
 			      unsigned long address, unsigned int foll_flags,
 			      unsigned int *page_mask);
 
-static inline struct page *follow_page(struct vm_area_struct *vma,
-		unsigned long address, unsigned int foll_flags)
-{
-	unsigned int unused_page_mask;
-	return follow_page_mask(vma, address, foll_flags, &unused_page_mask);
-}
-
 #define FOLL_WRITE	0x01	/* check pte is writable */
 #define FOLL_TOUCH	0x02	/* mark page accessed */
 #define FOLL_GET	0x04	/* do get_page on page */
@@ -2586,6 +2579,23 @@ static inline struct page *follow_page(struct vm_area_struct *vma,
 #define FOLL_COW	0x4000	/* internal GUP flag */
 #define FOLL_ANON	0x8000	/* don't do file mappings */
 #define FOLL_UNSHARE	0x40000000/* gup: unshare anon page with mapcount > 1 */
+#define FOLL_NOUNSHARE	0x80000000/* gup: don't trigger a COR fault */
+
+static inline struct page *follow_page(struct vm_area_struct *vma,
+		unsigned long address, unsigned int foll_flags)
+{
+	unsigned int unused_page_mask;
+
+	/*
+	 * Don't require unsharing in case we stumble over a read-only
+	 * mapped, shared anonymous page: this is an internal API only
+	 * and callers don't actually use it for exposing page content
+	 * to user space.
+	 */
+	foll_flags |= FOLL_NOUNSHARE;
+
+	return follow_page_mask(vma, address, foll_flags, &unused_page_mask);
+}
 
 static inline int vm_fault_to_errno(int vm_fault, int foll_flags)
 {

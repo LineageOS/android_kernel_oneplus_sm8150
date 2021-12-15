@@ -68,7 +68,7 @@ static __always_inline bool __gup_must_unshare(unsigned int flags,
 					       struct page *page,
 					       bool irq_safe)
 {
-	if (flags & FOLL_WRITE)
+	if (flags & (FOLL_WRITE|FOLL_NOUNSHARE))
 		return false;
 	/* mmu notifier doesn't need unshare */
 	if (!(flags & (FOLL_GET|FOLL_PIN)))
@@ -612,6 +612,8 @@ static int faultin_page(struct task_struct *tsk, struct vm_area_struct *vma,
 		fault_flags |= FAULT_FLAG_UNSHARE;
 		/* FAULT_FLAG_WRITE and FAULT_FLAG_UNSHARE are incompatible */
 		VM_BUG_ON(fault_flags & FAULT_FLAG_WRITE);
+		/* If FOLL_NOUNSHARE was set, then FOLL_UNSHARE must not be */
+		VM_BUG_ON(*flags & FOLL_NOUNSHARE);
 	}
 
 	ret = handle_mm_fault(vma, address, fault_flags);
