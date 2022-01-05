@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "7427153a_cb361ec7",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-05T02:42:36Z",
+      "side": 1,
+      "message": "Hello,\n\nthis optimizes away non scalable itlb flushes when there\u0027s only one single CPU TLB with an active ASID caching the process MM.\n\nIt is unknown if it might also save battery in the cases it doesn\u0027t increase SMP scalability, a realistic guess is probably not, but who knows. Whenever possible it will not activate anymore the part of the CPU that checks if the other cores needs invalidates (the very part of the aarch64 silicon that runs serially and cannot scale in SMP).\n\nThis was a quick backport from aa.git main-5.10.y and it appears to help on my aarch64 phone as well as it did on servers and supercomputers before, verified using a microbenchmarks like below. Disclaimer: in \"macro\" terms I don\u0027t know how much effect it can have, but if in doubt I rather keep it applied.\n\nBefore (lower is better):\n\n~ $ time (for i in `seq 8`; do ./mprotect-loop 2000 \u0026 done ;wait)\n\nreal    0m5.052s\nuser    0m0.077s\nsys     0m33.074s\n\nAfter (lower is better):\n\n~ $ time (for i in `seq 8`; do ./mprotect-loop 2000 \u0026 done ;wait)\n\nreal    0m1.116s\nuser    0m0.000s\nsys     0m5.234s\n\nThis is safer to apply only after the previous commit Change-Id: I42101cf705dfc17b297bf93353e8227aeac5ed30 for extra safety.\n\nThanks.",
+      "revId": "0d79610e0f5b91f8e4eacce24f84f356ff8c5762",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
