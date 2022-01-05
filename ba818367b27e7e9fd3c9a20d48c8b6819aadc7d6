@@ -16,6 +16,23 @@
       "message": "Hello,\n\nThis Change-Id: I654085cc1a3212eec603f5a1224cee0fdd1b45c6 is the tip of the patchset that is an alternate for CVE-2020-29374, instead of Change-Id: If6f9e1a80bd54bbee101aca3125582fa4b626459.\n\nTo reduce the complexity of the backport from aa.git mapcount_unshare branch, this is not handling THP and it will intentionally fail to build for safety in case somebody tries to enable THP in the kernel config. This shortcut was possible only because Android unfortunately don\u0027t seem to generally enable THP.\n\nChange-Id: If6f9e1a80bd54bbee101aca3125582fa4b626459 resolves the CVE by turning all read pins into write pins. This solution as opposed introduces a COR copy-on-read fault and it causes the read pin to invoke it by setting FOLL_UNSHARE whenever necessary according to the page exclusivity checked under page lock against mapcount+swapcount, so it remains transparent to the MM behavior (unlike Change-Id: If6f9e1a80bd54bbee101aca3125582fa4b626459) and it will not unnecessarily trigger copy-on-writes.\n\nThanks.",
       "revId": "ba818367b27e7e9fd3c9a20d48c8b6819aadc7d6",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "0ee338e6_67945686",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2022-01-05T12:12:09Z",
+      "side": 1,
+      "message": "is chain starting with revert merged upstream?",
+      "revId": "ba818367b27e7e9fd3c9a20d48c8b6819aadc7d6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
