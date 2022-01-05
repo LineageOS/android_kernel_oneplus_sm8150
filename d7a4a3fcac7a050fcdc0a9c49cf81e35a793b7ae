@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "8c4c571d_7d831d08",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-05T02:12:18Z",
+      "side": 1,
+      "message": "Hello,\n\nthis single commit is the upstream fix for CVE-2020-29374 backported from AOSP https://android.googlesource.com/kernel/common android-4.14-q.\n\nIt is self contained. Although it is known to break some stuff and that\u0027s why it had to be later reverted (notably pmem and virtiofs on DAX and KSM density), but it\u0027s the simplest possible stop-gap measure and it probably doesn\u0027t break anything Android has to deal with.\n\nThanks.",
+      "revId": "d7a4a3fcac7a050fcdc0a9c49cf81e35a793b7ae",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
