@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "e77ccffb_db54e6a0",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-05T02:58:55Z",
+      "side": 1,
+      "message": "Hello,\n\nthis is a simple optimization from aa.git main-5.10.y that was possible thanks to the kernel test robot feedback.\n\nReported-by: kernel test robot \u003coliver.sang@intel.com\u003e\n\nA random change caused the kernel test robot to report a big loss in SMP scalability in aa.git. \n\nDebugging what was going on over several iterations of extremely helpful kernel test robot feedback, it was clear the issue were the two critical locks in the mm_structure crossing the cacheline boundary. So this brand new mm_struct layout was created in aa.git in order to eliminate completely the false sharing of the two locks with all other not read mostly fields, while still wasting as little RAM as possible. This as expected resulted in the maximum performance in the kernel test robot.\n\nThe Android kernel has the non upstream speculative page fault backport applied whose primary objective is to remove SMP locking contention on these locks that might be suffering from false sharing. The non upstream speculative page faults however cannot optimize away the contention except in some case with anonymous memory. This complements the speculative page faults because it\u0027ll reduce the false sharing when they couldn\u0027t optimize away the locking.\n\nThe macro effect is unknown, but if compared to speculative page faults it\u0027s so simple that in doubt I prefer to keep it applied.\n\nThanks.",
+      "revId": "2da7e2e467b6a6b1566deaf7e2c2c306f2115c70",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
