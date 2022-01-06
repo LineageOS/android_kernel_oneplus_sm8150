@@ -33,6 +33,24 @@
       "message": "is chain starting with revert merged upstream?",
       "revId": "ba818367b27e7e9fd3c9a20d48c8b6819aadc7d6",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "141c3243_1fd3e4f2",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-06T23:02:03Z",
+      "side": 1,
+      "message": "\u003e is chain starting with revert merged upstream?\n\nYes the first commit of the chain is the AOSP fix that is reverted in the second commit of this chain (it\u0027s also reverted upstream, but not reverted in AOSP common kernel) and then the alternative fix is applied after the revert commit.\n\nThe simplest fix is to apply the AOSP fix and stop there, but this full chain is my preferred solution since it has no side effects (even though the side effects should not bite the Android use cases).\n\nThanks!",
+      "parentUuid": "0ee338e6_67945686",
+      "revId": "ba818367b27e7e9fd3c9a20d48c8b6819aadc7d6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
