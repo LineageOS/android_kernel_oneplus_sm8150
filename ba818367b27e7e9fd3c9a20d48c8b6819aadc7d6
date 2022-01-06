@@ -51,6 +51,24 @@
       "parentUuid": "0ee338e6_67945686",
       "revId": "ba818367b27e7e9fd3c9a20d48c8b6819aadc7d6",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "e00a74b1_84cfa7eb",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2022-01-06T23:13:31Z",
+      "side": 1,
+      "message": "So alternative fix is in mainline?",
+      "parentUuid": "141c3243_1fd3e4f2",
+      "revId": "ba818367b27e7e9fd3c9a20d48c8b6819aadc7d6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
