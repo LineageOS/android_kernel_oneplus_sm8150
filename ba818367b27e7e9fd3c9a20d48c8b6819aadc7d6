@@ -69,6 +69,24 @@
       "parentUuid": "141c3243_1fd3e4f2",
       "revId": "ba818367b27e7e9fd3c9a20d48c8b6819aadc7d6",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "ca0ddd37_badbd49f",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-07T02:05:06Z",
+      "side": 1,
+      "message": "It\u0027s not, but the AOSP fix is not in mainline anymore either, it is only in AOSP and -stable, it had to be reverted from mainline.\n\nThe alternate fix is in the mapcount_unshare branch of my git tree:\n\nhttps://gitlab.com/aarcange/aa/-/tree/mapcount_unshare\n\nThe reason the AOSP/-stable fix had to be reverted from mainline is that it causes various user ABI regressions, some related to unexpected side effects to the behavior of the ptrace reads and other side effects in terms of higher memory utilization in some case (for example short term pins on MAP_PRIVATE memory will erroneously COW). It\u0027s hard to tell if there\u0027s any driver like GPU drivers using GUP in a way that may lead to higher memory utilization.\n\nI run with the AOSP fix for a day and it appeared to work stable, so you can always try the AOSP fix first and then if there are problems you should promptly switch to this safer - even if more complex - alternate downstream fix. \n\nHere I stick to the alternate downstream fix since I think it\u0027s safer.\n\nYet another alternative that would work is to block vmsplice for unprivileged processes. The problem is that also would break any app that might be using it, so that\u0027s a change that would be better done at the AOSP level and it\u0027s a good idea regardless of this issue. This issue in theory can be exploited with any unprivileged user API allowing a unprivileged read GUP, so it cannot be fixed in vmpslice, however for all practical purposes vmsplice is the only vector that is allowing an unprivileged long term pin and that won\u0027t discharge the battery and make the phone hot and that will also reproduce trivially allowing an infinitely large window. All other vectors (i.e. O_DIRECT) are non concerning.",
+      "parentUuid": "e00a74b1_84cfa7eb",
+      "revId": "ba818367b27e7e9fd3c9a20d48c8b6819aadc7d6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
