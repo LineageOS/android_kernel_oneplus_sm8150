@@ -166,7 +166,7 @@ void rttQueueDequeue(void)
 	rtt_rear--;
 }
 
-int average_rtt_queue()
+int average_rtt_queue(void)
 {
 	int sum = 0;
 	int i = 0;
