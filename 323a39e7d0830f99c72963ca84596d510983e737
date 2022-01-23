@@ -33,6 +33,42 @@
       "message": "Facts: you can merge, then cherry-pick the merge commit using `-m 1` and push the new HEAD to gerrit",
       "revId": "323a39e7d0830f99c72963ca84596d510983e737",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "27122cd4_8c3a080f",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-23T20:16:40Z",
+      "side": 1,
+      "message": "Hmm I\u0027m used to \"cherry-pick -x\" for backports so the original commit hash also shows up in the commit message. What would be the advantage of merging each commit individually instead of cherry picking it? That is a workflow I\u0027m not used to.",
+      "parentUuid": "1b0a85bb_cb7595bc",
+      "revId": "323a39e7d0830f99c72963ca84596d510983e737",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "82dc20a0_346acb4d",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-23T20:16:40Z",
+      "side": 1,
+      "message": "Now I\u0027m confused if you are suggesting to invoke \"git merge\" 5k times for each commit individually like Lukasz suggested above, or if you mean to merge the two heads and then to resolve a large conflict at once.\n\nIf you mean to merging the two heads with a single merge command, that would then require lots of more difficult work to sort out the reject/conflict than the workflow I used.\n\nThis did 5k cherry picks and at every failed cherry-pick it invoked logics to resolve the rejects with automation (kdiff3 in batch mode) to avoid losing commits where an automated resolution is possible, but that git cannot resolve (and clearly I cannot use ours/theirs, it needs 3way logics to take the decision if a conflict can be resolved automatically). I didn\u0027t spend almost any time resolving any conflict. I only checked those commits that couldn\u0027t be merged automatically appeared not critical and I fixed a few bits for the build (as in the timer driver).",
+      "parentUuid": "2ebef106_50be4d8f",
+      "revId": "323a39e7d0830f99c72963ca84596d510983e737",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
