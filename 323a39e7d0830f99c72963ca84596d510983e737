@@ -86,6 +86,23 @@
       "message": "I guess the problem here is gerrit, but it\u0027s not ideal to pick a workflow just because it\u0027s the workflow gerrit can handle natively. If this was gitlab I could have posted the 5k cherry-picks as 5k incremental commits (with no merge commit) here instead of being able to post only the flattened version with a link to the signed tag with the cherry-picks in an external git tree...\n\nOn a side note, I forgot to specify it in the header, I also verified that each commit that got successfully cherry-picked by the automation, didn\u0027t have a fixme commit in the same range that failed its cherry-picking. That\u0027s something to double check every time, to be sure the automation didn\u0027t succeed at merging a bug, but failed to merge the incremental fix.",
       "revId": "323a39e7d0830f99c72963ca84596d510983e737",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "597e2ec2_e7274035",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-23T21:20:35Z",
+      "side": 1,
+      "message": "The commits that failed cherry-picking but that kdiff3 resolved automatically were specifically these one below:\n\n   -:  ------------- \u003e  220:  7cc37d2e2735c net: refactor bind_bucket fastreuse into helper\n   -:  ------------- \u003e  631:  82be18dfc43e3 mm: fix double page fault on arm64 if PTE_AF is cleared\n   -:  ------------- \u003e  688:  6f9403d103983 mm: avoid data corruption on CoW fault into PFN-mapped VMA\n   -:  ------------- \u003e  975:  ba1e4f07a4d96 mailbox: avoid timer start from callback\n   -:  ------------- \u003e 1139:  0e9f691b53c17 usb: dwc3: core: add phy cleanup for probe error handling\n   -:  ------------- \u003e 1140:  35d7a7768580c usb: dwc3: core: don\u0027t trigger runtime pm when remove driver\n   -:  ------------- \u003e 1535:  e9dacd2a1de19 scsi: ufs: Make sure clk scaling happens only when HBA is runtime ACTIVE\n   -:  ------------- \u003e 1751:  4f44a7f0410d4 soc: qcom: smp2p: Safely acquire spinlock without IRQs\n   -:  ------------- \u003e 1840:  7348f44922413 usb: gadget: f_uac2: reset wMaxPacketSize\n   -:  ------------- \u003e 1855:  8cafca9adc0bc ANDROID: cuttlefish_defconfig: add missing CONFIG_BLK_CGROUP\n   -:  ------------- \u003e 2399:  f1c94793d86e4 usb: gadget: f_uac2: always increase endpoint max_packet_size by one audio slot\n   -:  ------------- \u003e 3328:  915da7ac2a86e usb: dwc3: core: fix kernel panic when do reboot\n\nThere is always some risk in having kdiff3 resolve a conflict automatically (I have it set in \"full analysis\" mode), but I believe it\u0027s a lower risk than not merging the commit, for example 6f9403d103983 avoids data corruption so it\u0027s good thing it didn\u0027t end up in the list of not merged commits.\n\nIt\u0027s trivial to generate the tree of cherry-picks vs cherry-picks+kdiff3 and compare them, that\u0027s how I just generated the above list. So in addition I also reviewed the diff between these two trees (w/ and w/o kdiff extra conflict resolution) for extra safety and there were not apparent mismerges as result of kdiff3 being used on top of cherry-pick, just more commits included (above). I already discarded two cases I found earlier of mismerge from kdiff3.\n\nI also forgot to mention two other minor details.\n\nThe below commit was already applied. git cherry-pick (well before kdiff3) caused a mismerge and the fix was just to drop it because it was already applied. I\u0027m sure a git merge (instead of git cherry-pick) would have done the same silent mistake, but just dropping one commit in git rebase is quicker to resolve.\n\n 421:  e47c158717dec \u003c    -:  ------------- writeback: Protect inode-\u003ei_io_list with inode-\u003ei_lock\n\nI also dropped these 3 commits while I was still fixing build issues:\n\n4219:  d917e623744e3 \u003c    -:  ------------- compiler.h: Introduce absolute_pointer macro \n4220:  af814e75a9603 \u003c    -:  ------------- net: i825xx: Use absolute_pointer for memcpy from fixed memory location\n4223:  b4bae57c9fa29 \u003c    -:  ------------- parisc: Use absolute_pointer() to define PAGE0\n\nI believe it\u0027d be possible to re-apply them now, that the build is fixed.\n\nI didn\u0027t bother to re-apply because they\u0027re irrelevant for LOS. Their only purpose is to shutdown some build warning with gcc 11 so they don\u0027t apply here.",
+      "revId": "323a39e7d0830f99c72963ca84596d510983e737",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
