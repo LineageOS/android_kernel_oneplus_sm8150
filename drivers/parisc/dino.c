@@ -160,15 +160,6 @@ struct dino_device
 	(struct dino_device *)__pdata; })
 
 
-/* Check if PCI device is behind a Card-mode Dino. */
-static int pci_dev_is_behind_card_dino(struct pci_dev *dev)
-{
-	struct dino_device *dino_dev;
-
-	dino_dev = DINO_DEV(parisc_walk_tree(dev->bus->bridge));
-	return is_card_dino(&dino_dev->hba.dev->id);
-}
-
 /*
  * Dino Configuration Space Accessor Functions
  */
@@ -312,7 +303,7 @@ static void dino_mask_irq(struct irq_data *d)
 	struct dino_device *dino_dev = irq_data_get_irq_chip_data(d);
 	int local_irq = gsc_find_local_irq(d->irq, dino_dev->global_irq, DINO_LOCAL_IRQS);
 
-	DBG(KERN_WARNING "%s(0x%p, %d)\n", __func__, dino_dev, d->irq);
+	DBG(KERN_WARNING "%s(0x%px, %d)\n", __func__, dino_dev, d->irq);
 
 	/* Clear the matching bit in the IMR register */
 	dino_dev->imr &= ~(DINO_MASK_IRQ(local_irq));
@@ -325,7 +316,7 @@ static void dino_unmask_irq(struct irq_data *d)
 	int local_irq = gsc_find_local_irq(d->irq, dino_dev->global_irq, DINO_LOCAL_IRQS);
 	u32 tmp;
 
-	DBG(KERN_WARNING "%s(0x%p, %d)\n", __func__, dino_dev, d->irq);
+	DBG(KERN_WARNING "%s(0x%px, %d)\n", __func__, dino_dev, d->irq);
 
 	/*
 	** clear pending IRQ bits
@@ -405,7 +396,7 @@ ilr_again:
 	if (mask) {
 		if (--ilr_loop > 0)
 			goto ilr_again;
-		printk(KERN_ERR "Dino 0x%p: stuck interrupt %d\n", 
+		printk(KERN_ERR "Dino 0x%px: stuck interrupt %d\n",
 		       dino_dev->hba.base_addr, mask);
 		return IRQ_NONE;
 	}
@@ -452,6 +443,15 @@ static void quirk_cirrus_cardbus(struct pci_dev *dev)
 DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_CIRRUS, PCI_DEVICE_ID_CIRRUS_6832, quirk_cirrus_cardbus );
 
 #ifdef CONFIG_TULIP
+/* Check if PCI device is behind a Card-mode Dino. */
+static int pci_dev_is_behind_card_dino(struct pci_dev *dev)
+{
+	struct dino_device *dino_dev;
+
+	dino_dev = DINO_DEV(parisc_walk_tree(dev->bus->bridge));
+	return is_card_dino(&dino_dev->hba.dev->id);
+}
+
 static void pci_fixup_tulip(struct pci_dev *dev)
 {
 	if (!pci_dev_is_behind_card_dino(dev))
@@ -577,7 +577,7 @@ dino_fixup_bus(struct pci_bus *bus)
         struct pci_dev *dev;
         struct dino_device *dino_dev = DINO_DEV(parisc_walk_tree(bus->bridge));
 
-	DBG(KERN_WARNING "%s(0x%p) bus %d platform_data 0x%p\n",
+	DBG(KERN_WARNING "%s(0x%px) bus %d platform_data 0x%px\n",
 	    __func__, bus, bus->busn_res.start,
 	    bus->bridge->platform_data);
 
@@ -878,7 +878,7 @@ static int __init dino_common_init(struct parisc_device *dev,
 	res->flags = IORESOURCE_IO; /* do not mark it busy ! */
 	if (request_resource(&ioport_resource, res) < 0) {
 		printk(KERN_ERR "%s: request I/O Port region failed "
-		       "0x%lx/%lx (hpa 0x%p)\n",
+		       "0x%lx/%lx (hpa 0x%px)\n",
 		       name, (unsigned long)res->start, (unsigned long)res->end,
 		       dino_dev->hba.base_addr);
 		return 1;
