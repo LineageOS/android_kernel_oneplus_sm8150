@@ -69,6 +69,23 @@
       "parentUuid": "2ebef106_50be4d8f",
       "revId": "323a39e7d0830f99c72963ca84596d510983e737",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "d0ab486e_38025af1",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-23T20:29:55Z",
+      "side": 1,
+      "message": "I guess the problem here is gerrit, but it\u0027s not ideal to pick a workflow just because it\u0027s the workflow gerrit can handle natively. If this was gitlab I could have posted the 5k cherry-picks as 5k incremental commits (with no merge commit) here instead of being able to post only the flattened version with a link to the signed tag with the cherry-picks in an external git tree...\n\nOn a side note, I forgot to specify it in the header, I also verified that each commit that got successfully cherry-picked by the automation, didn\u0027t have a fixme commit in the same range that failed its cherry-picking. That\u0027s something to double check every time, to be sure the automation didn\u0027t succeed at merging a bug, but failed to merge the incremental fix.",
+      "revId": "323a39e7d0830f99c72963ca84596d510983e737",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
