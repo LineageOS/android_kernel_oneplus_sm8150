@@ -627,11 +627,11 @@ void __init mem_init(void)
 	mem_init_print_info(NULL);
 #ifdef CONFIG_DEBUG_KERNEL /* double-sanity-check paranoia */
 	printk("virtual kernel memory layout:\n"
-	       "    vmalloc : 0x%p - 0x%p   (%4ld MB)\n"
-	       "    memory  : 0x%p - 0x%p   (%4ld MB)\n"
-	       "      .init : 0x%p - 0x%p   (%4ld kB)\n"
-	       "      .data : 0x%p - 0x%p   (%4ld kB)\n"
-	       "      .text : 0x%p - 0x%p   (%4ld kB)\n",
+	       "    vmalloc : 0x%px - 0x%px   (%4ld MB)\n"
+	       "    memory  : 0x%px - 0x%px   (%4ld MB)\n"
+	       "      .init : 0x%px - 0x%px   (%4ld kB)\n"
+	       "      .data : 0x%px - 0x%px   (%4ld kB)\n"
+	       "      .text : 0x%px - 0x%px   (%4ld kB)\n",
 
 	       (void*)VMALLOC_START, (void*)VMALLOC_END,
 	       (VMALLOC_END - VMALLOC_START) >> 20,
@@ -895,9 +895,9 @@ void flush_tlb_all(void)
 {
 	int do_recycle;
 
-	__inc_irq_stat(irq_tlb_count);
 	do_recycle = 0;
 	spin_lock(&sid_lock);
+	__inc_irq_stat(irq_tlb_count);
 	if (dirty_space_ids > RECYCLE_THRESHOLD) {
 	    BUG_ON(recycle_inuse);  /* FIXME: Use a semaphore/wait queue here */
 	    get_dirty_sids(&recycle_ndirty,recycle_dirty_array);
@@ -916,8 +916,8 @@ void flush_tlb_all(void)
 #else
 void flush_tlb_all(void)
 {
-	__inc_irq_stat(irq_tlb_count);
 	spin_lock(&sid_lock);
+	__inc_irq_stat(irq_tlb_count);
 	flush_tlb_all_local(NULL);
 	recycle_sids();
 	spin_unlock(&sid_lock);
