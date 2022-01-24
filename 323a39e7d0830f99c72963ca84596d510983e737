@@ -138,6 +138,24 @@
       "parentUuid": "011b7549_1d370e5b",
       "revId": "323a39e7d0830f99c72963ca84596d510983e737",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "effc78ee_62e87c15",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 16185
+      },
+      "writtenOn": "2022-01-24T19:12:51Z",
+      "side": 1,
+      "message": "Lukas wasn\u0027t suggesting that. The normal workflow is to either:\n\nMerge linux-stable if kernel is no longer supported by Android by default (legacy, etc.)\n\nOR\n\nMerge the relevant google repo tag, so in this case kernel/msm on 4.14-q. Luk wasn\u0027t asking for _each commit_ to be merged, but each kernel revision of 4.14-q (probably only like, 20-something) to be merged.\n\nRelatively easy, and easy to keep revision tracking on for us (in case we need to bisect for issues).\n\nYour pitch of android13-5.15 isn\u0027t very feasible, as one, the oneplus additions might not be compatible, PLUS - really doubt the firmware/blobs will play nicely with that.. maybe I\u0027m wrong, just speaking from experience.",
+      "parentUuid": "82dc20a0_346acb4d",
+      "revId": "323a39e7d0830f99c72963ca84596d510983e737",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
