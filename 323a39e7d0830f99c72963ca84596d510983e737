@@ -156,6 +156,24 @@
       "parentUuid": "82dc20a0_346acb4d",
       "revId": "323a39e7d0830f99c72963ca84596d510983e737",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "dcb74dcd_8dd989b9",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 28795
+      },
+      "writtenOn": "2022-01-24T19:13:38Z",
+      "side": 1,
+      "message": "ah, you\u0027re just picking security fixes. Sorry for misunderstanding, I didn\u0027t carefully look over this change. (painful to review \u0026 write replies on a phone)\n\nSo there are still some questions/advice:\n\n- Not all commits tagged CVE are useful. I mean, literally most of them cannot be exploited on our hardware / Android platform. Of course automated scripts cannot handle this well, but we can manually discard some explicitly irrelevant changes.\n\n- The \"clean-up and rebase\" mentioned above is to say, on los19 branch we can make a brand new CAFest kernel with minimal OEM changes imported, so it will be easier to maintain \u0026 get upstream fixes merged safely. @LuK1337 any idea?",
+      "parentUuid": "e8465d1e_b72ce0bc",
+      "revId": "323a39e7d0830f99c72963ca84596d510983e737",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
