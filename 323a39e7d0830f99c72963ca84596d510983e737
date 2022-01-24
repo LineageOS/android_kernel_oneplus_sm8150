@@ -120,6 +120,24 @@
       "message": "personally do not like this, so I\u0027ll drop CR-1 here.\n\nReason:\n- You should merge branch `android-4.14-stable` from kernel/common.\n- Currently this kernel totally a mess, filled with OEM s**ts. If luk accepts to merge ASB tags, we\u0027d better do a big cleanup first and rebase it onto a more recent and stable CAF baseline.",
       "revId": "323a39e7d0830f99c72963ca84596d510983e737",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "e8465d1e_b72ce0bc",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-24T17:40:34Z",
+      "side": 1,
+      "message": "I do not like this either and I\u0027d prefer to rebase on android13-5.15 or a somewhat more recent kernel like centos-9 or 5.15-LTS aa.git that I run elsewhere.\n\nThis is what I could do in 1 hour with near full automation with the only short term objective to be a stop-gap measure to get rid of this:\n\ngit log lineage/lineage-18.1..lineage-18.1_android-4.14-q |grep CVE | wc -l\n37\n\nAnd as you should know lots of CVE aren\u0027t tagged as CVE in the commit logs unfortunately so this is a gross underestimation of all fixes merged successfully with automation. If there was a way to single out only the security related bits I would have skipped the rest.\n\nIf you suggest me the exact tree where to rebase onto, I can give it a spin next weekend to see how far the automation goes, but the problem is that doing it that way, every commit that has conflicts cannot be safely skipped (like I skipped all commits touching f_accessory for example). So unless it goes in perfectly clean (which I doubt) it\u0027ll be a time consuming effort.",
+      "parentUuid": "011b7549_1d370e5b",
+      "revId": "323a39e7d0830f99c72963ca84596d510983e737",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
