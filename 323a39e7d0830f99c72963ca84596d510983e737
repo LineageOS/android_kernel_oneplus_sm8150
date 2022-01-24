@@ -174,6 +174,24 @@
       "parentUuid": "e8465d1e_b72ce0bc",
       "revId": "323a39e7d0830f99c72963ca84596d510983e737",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "7a42f0f9_d85a7d17",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-24T19:43:49Z",
+      "side": 1,
+      "message": "Correct, the objective was to cherry-pick just CVE security fixes that apply to LOS.\n\nHowever I can\u0027t just go over 5k commits to decide which applies and which not and can be safely skipped. Like I said I cannot only look at commit messages with the CVE tag in them because lots of CVE fixes misses the CVE tag. That might work for some, but it\u0027s not a sure thing.\n\nFor example this one that I cherry picked manually has no CVE tag in it and it does apply to LOS and it fixes CVE-2020-29374: https://github.com/LineageOS/android_kernel_oneplus_sm8150/commit/d7a4a3fcac7a050fcdc0a9c49cf81e35a793b7ae\n\nThis new commit is the automated bulk version of the above cherry-pick. It would have picked up that CVE fix too in fact, if we didn\u0027t already cherry-pick it manually earlier.",
+      "parentUuid": "dcb74dcd_8dd989b9",
+      "revId": "323a39e7d0830f99c72963ca84596d510983e737",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
