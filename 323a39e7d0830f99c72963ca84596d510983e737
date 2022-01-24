@@ -192,6 +192,41 @@
       "parentUuid": "dcb74dcd_8dd989b9",
       "revId": "323a39e7d0830f99c72963ca84596d510983e737",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "daf188d9_1642d2cb",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-24T20:00:53Z",
+      "side": 1,
+      "message": "Unfortunately there are too many branches and kernels for me to understand exactly which git hash \"kernel/msm on 4.14-q tag 20-something\" refers to.\n\nI also don\u0027t get why on there are a myriad of almost identical branches with very marginal differences to the point it\u0027s difficult to see which one is more preferable to cherry pick from or to merge against.\n\nSo I can try to have a look next weekend at the merge of the repo tags, but it needs to be a tag that can be trusted to be updated with all outstanding fixes (otherwise the current cherry-pick from a more common uptodate branch would be still preferable). If I will then have enough time to complete merge conflict resolution by hand, it entirely depends on how bad each merge will conflict... because I doubt it\u0027ll just merge without any conflict but then only one way to find out...\n\nThanks!",
+      "parentUuid": "effc78ee_62e87c15",
+      "revId": "323a39e7d0830f99c72963ca84596d510983e737",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "716e66e0_a9235874",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 3864
+      },
+      "writtenOn": "2022-01-24T20:00:53Z",
+      "side": 1,
+      "message": "\u003e Patch Set 1:\n\u003e \n\u003e I don\u0027t mind having rebased kernel for 19 but the problem is that i don\u0027t want to be one doing it. I really don\u0027t enjoy working on kernel at all.\n\nIf ",
+      "revId": "323a39e7d0830f99c72963ca84596d510983e737",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
