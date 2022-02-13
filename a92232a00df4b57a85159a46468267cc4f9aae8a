@@ -16,6 +16,24 @@
       "message": "Wrong indentation.",
       "revId": "a92232a00df4b57a85159a46468267cc4f9aae8a",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "8f915d81_3e892432",
+        "filename": "drivers/gpu/drm/msm/sde/sde_plane.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 4868,
+      "author": {
+        "id": 13648
+      },
+      "writtenOn": "2022-02-13T20:16:30Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6061f668_271fba6c",
+      "revId": "a92232a00df4b57a85159a46468267cc4f9aae8a",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
