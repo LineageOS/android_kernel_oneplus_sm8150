@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "31895bcc_2abb1ffe",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 24438
+      },
+      "writtenOn": "2022-03-20T16:27:16Z",
+      "side": 1,
+      "message": "https://android.googlesource.com/kernel/msm/+/871bf9fc01e5b6e8d4023186fe08477646c4d338\nThis is also present in the 4.14 kernel tree... so technically not a backport",
+      "revId": "4e11d173a7b5ecefb188342dcbb903745c9e7343",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
