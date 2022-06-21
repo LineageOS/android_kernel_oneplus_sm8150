@@ -20,7 +20,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/consumer.h>
 #include <linux/extcon.h>
-#include "../../../../kernel/msm-4.14/drivers/power/supply/qcom/storm-watch.h"
+#include "../../../../drivers/power/supply/qcom/storm-watch.h"
 
 enum print_reason {
 	PR_INTERRUPT	= BIT(0),

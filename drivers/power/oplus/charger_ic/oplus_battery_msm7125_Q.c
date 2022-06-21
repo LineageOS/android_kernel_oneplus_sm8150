@@ -38,11 +38,11 @@
 #include <linux/iio/consumer.h>
 #include <linux/kthread.h>
 #include <linux/usb/class-dual-role.h>
-#include "../../../../kernel/msm-4.14/drivers/power/supply/qcom/smb5-reg.h"
-#include "../../../../kernel/msm-4.14/drivers/power/supply/qcom/schgm-flash.h"
-#include "../../../../kernel/msm-4.14/drivers/power/supply/qcom/step-chg-jeita.h"
-#include "../../../../kernel/msm-4.14/drivers/power/supply/qcom/battery.h"
-#include "../../../../kernel/msm-4.14/drivers/power/supply/qcom/storm-watch.h"
+#include "../../../../drivers/power/supply/qcom/smb5-reg.h"
+#include "../../../../drivers/power/supply/qcom/schgm-flash.h"
+#include "../../../../drivers/power/supply/qcom/step-chg-jeita.h"
+#include "../../../../drivers/power/supply/qcom/battery.h"
+#include "../../../../drivers/power/supply/qcom/storm-watch.h"
 
 #include <soc/oplus/system/boot_mode.h>
 #include <soc/oplus/device_info.h>

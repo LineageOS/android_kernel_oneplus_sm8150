@@ -28,8 +28,8 @@
 #endif
 /**************************************************/
 #ifdef VENDOR_EDIT
-#include "../../../../kernel/msm-4.14/drivers/power/supply/qcom/storm-watch.h"
-#include "../../../../kernel/msm-4.14/drivers/power/supply/qcom/battery.h"
+#include "../../../../drivers/power/supply/qcom/storm-watch.h"
+#include "../../../../drivers/power/supply/qcom/battery.h"
 #endif
 
 #ifdef VENDOR_EDIT

@@ -23,7 +23,7 @@
 #include <linux/usb/class-dual-role.h>
 
 #ifdef OPLUS_FEATURE_CHG_BASIC
-#include "../../../../kernel/msm-4.14/drivers/power/supply/qcom/storm-watch.h"
+#include "../../../../drivers/power/supply/qcom/storm-watch.h"
 #endif
 
 enum print_reason {
