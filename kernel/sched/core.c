@@ -3216,7 +3216,7 @@ static u64 calc_freq_ux_load(struct task_struct *p, u64 wallclock)
  * This function gets called by the timer code, with HZ frequency.
  * We call it with interrupts disabled.
  */
-void adjust_sched_assist_input_ctrl(){
+void adjust_sched_assist_input_ctrl(void){
 	if (!sysctl_input_boost_enabled)
 		return;
 	if(sysctl_slide_boost_enabled){

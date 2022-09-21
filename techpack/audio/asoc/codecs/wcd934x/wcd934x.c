@@ -10356,7 +10356,7 @@ static int wcd934x_get_bob_regulator_index_by_name(const char *name){
 	return -1;
 }
 
-int wcd934x_headset_bob_regulator_get_mode()
+int wcd934x_headset_bob_regulator_get_mode(void)
 {
 	struct wcd9xxx_pdata *pwcd934x_pdata = g_typec_headset_data.pwcd934x_pdata;
 	struct cdc_regulator *cdc_vreg = pwcd934x_pdata->regulator;
