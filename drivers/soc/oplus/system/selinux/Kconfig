@@ -1,0 +1,5 @@
+config OPLUS_FEATURE_SELINUX_CONTROL_LOG
+  bool "config control selinux log"
+  default y
+  help
+	define this config to control selinux log.

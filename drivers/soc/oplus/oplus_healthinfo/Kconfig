@@ -1,0 +1,16 @@
+#ifdef OPLUS_FEATURE_HEALTHINFO
+config OPLUS_HEALTHINFO
+bool "config oplus healthinfo"
+help
+    define this config to init oplus healthinfo.
+config CAMERA_OPT
+	bool "config camera opt"
+	default n
+	help
+	  reduce camera provider task runnable time
+config MMAP_LOCK_OPT
+	bool "config mmap lock opt boos"
+	default n
+	help
+	  reduce sleep time in mmap lock
+#endif /* OPLUS_FEATURE_HEALTHINFO */

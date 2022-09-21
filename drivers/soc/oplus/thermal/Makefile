@@ -1,0 +1,9 @@
+obj-$(CONFIG_HORAE_THERMAL_SHELL) += horae_shell_temp.o
+
+#ifdef OPLUS_FEATURE_DRG
+obj-$(CONFIG_OPLUS_DRG) += oplus_drg/
+#endif /* OPLUS_FEATURE_DRG */
+
+#ifdef OPLUS_FEATURE_GKI_CPUFREQ_BOUNCING
+obj-$(CONFIG_OPLUS_FEATURE_GKI_CPUFREQ_BOUNCING) += cpufreq_bouncing/
+#endif /* OPLUS_FEATURE_GKI_CPUFREQ_BOUNCING */
