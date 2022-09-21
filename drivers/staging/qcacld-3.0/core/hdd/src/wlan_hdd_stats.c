@@ -4805,7 +4805,32 @@ static int wlan_hdd_get_sta_stats(struct wiphy *wiphy,
 
 	adapter->rssi = adapter->hdd_stats.summary_stat.rssi;
 	snr = adapter->hdd_stats.summary_stat.snr;
+#ifdef OPLUS_BUG_STABILITY
+    //Add for:Avoid upload invalid RSSI to upper layer when a new connection established.
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
+	{
+#define HW_VALID_RSSI_THRESHOLD (-90)
+			bool isValidRssi = true;
+			int i = 0;
+			if (adapter->rssi < HW_VALID_RSSI_THRESHOLD) {
+				for (i = 0; i < NUM_CHAINS_MAX; i++) {
+					if (adapter->hdd_stats.per_chain_rssi_stats.rssi[i] != WLAN_HDD_TGT_NOISE_FLOOR_DBM)
+						break;
+				}
 
+				if (i == NUM_CHAINS_MAX)
+					isValidRssi = false;
+			}
+
+			if (!isValidRssi) {
+				hdd_debug("get invalid RSSI from FW, use RSSI from scan result! HW combined RSSI=%d, Chain RSSI=%d.",
+					adapter->rssi, adapter->hdd_stats.per_chain_rssi_stats.rssi[0]);
+				adapter->rssi = 0;
+			}
+#undef HW_VALID_RSSI_THRESHOLD
+	}
+#endif
+#endif /* OPLUS_BUG_STABILITY */
 	/* for new connection there might be no valid previous RSSI */
 	if (!adapter->rssi) {
 		hdd_get_rssi_snr_by_bssid(adapter,
