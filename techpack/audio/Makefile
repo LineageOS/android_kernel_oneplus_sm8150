@@ -59,12 +59,6 @@ LINUXINCLUDE    += \
                 -include $(srctree)/techpack/audio/config/sm8150autoconf.h
 endif
 
-ifeq ($(OPLUS_FEATURE_MM_ULTRASOUND), y)
-LINUXINCLUDE    += \
-                -I$(srctree)/techpack/audio/include/elliptic
-obj-y += dsp/elliptic
-endif
-
 obj-y += soc/
 obj-y += dsp/
 obj-y += ipc/
