@@ -23,7 +23,9 @@
 #include <linux/workqueue.h>
 
 #include <soc/qcom/subsystem_restart.h>
-
+#ifdef OPLUS_BUG_STABILITY
+#include <linux/regulator/consumer.h>
+#endif // OPLUS_BUG_STABILITY
 #define Q6_PIL_GET_DELAY_MS 100
 #define BOOT_CMD 1
 #define SSR_RESET_CMD 1
@@ -41,6 +43,7 @@ struct adsp_loader_private {
 	void *pil_h;
 	struct kobject *boot_adsp_obj;
 	struct attribute_group *attr_group;
+	char *adsp_fw_name;
 };
 
 static struct kobj_attribute adsp_boot_attribute =
@@ -68,6 +71,10 @@ static void adsp_load_fw(struct work_struct *adsp_ldr_work)
 	int rc = 0;
 	u32 adsp_state;
 	const char *img_name;
+#ifdef OPLUS_BUG_STABILITY
+	const char *adsp_img = NULL;
+	struct regulator *vdd_1v8 = NULL;
+#endif // OPLUS_BUG_STABILITY
 
 	if (!pdev) {
 		dev_err(&pdev->dev, "%s: Platform device null\n", __func__);
@@ -86,7 +93,17 @@ static void adsp_load_fw(struct work_struct *adsp_ldr_work)
 			"%s: ADSP state = %x\n", __func__, adsp_state);
 		goto fail;
 	}
-
+#ifdef OPLUS_BUG_STABILITY
+	vdd_1v8 = regulator_get(&pdev->dev, "vddio");
+	if (vdd_1v8 != NULL) {
+		dev_err(&pdev->dev,"%s: vdd_1v8 is not NULL\n", __func__);
+		regulator_set_voltage(vdd_1v8, 1704000, 1952000);
+		regulator_set_load(vdd_1v8, 200000);
+		regulator_enable(vdd_1v8);
+	} else {
+		dev_err(&pdev->dev,"%s: vdd_1v8 is NULL\n", __func__);
+	}
+#endif // OPLUS_BUG_STABILITY
 	rc = of_property_read_string(pdev->dev.of_node,
 					"qcom,proc-img-to-load",
 					&img_name);
@@ -136,8 +153,36 @@ load_adsp:
 				" %s: Private data get failed\n", __func__);
 				goto fail;
 			}
+#ifdef OPLUS_BUG_STABILITY
+			rc = of_property_read_string(pdev->dev.of_node, "multi-adsp-firmware", &adsp_img);
+			if (rc) {
+				dev_err(&pdev->dev,
+					"%s: multi-adsp_fw is not set, Load default\n", __func__);
+				if (!priv->adsp_fw_name) {
+					dev_err(&pdev->dev, "%s: Load default ADSP\n",
+						__func__);
+					priv->pil_h = subsystem_get("adsp");
+				} else {
+					dev_err(&pdev->dev, "%s: Load ADSP with fw name %s\n",
+						__func__, priv->adsp_fw_name);
+					priv->pil_h = subsystem_get_with_fwname("adsp", priv->adsp_fw_name);
+				}
+			} else {
+				dev_err(&pdev->dev, "%s: adsp-firmware = %s\n", __func__, adsp_img);
+				priv->pil_h = subsystem_get_with_fwname("adsp", adsp_img);
+			}
+#else // OPLUS_BUG_STABILITY
+			if (!priv->adsp_fw_name) {
+				dev_dbg(&pdev->dev, "%s: Load default ADSP\n",
+					__func__);
+				priv->pil_h = subsystem_get("adsp");
+			} else {
+				dev_dbg(&pdev->dev, "%s: Load ADSP with fw name %s\n",
+					__func__, priv->adsp_fw_name);
+				priv->pil_h = subsystem_get_with_fwname("adsp", priv->adsp_fw_name);
+			}
+#endif // OPLUS_BUG_STABILITY
 
-			priv->pil_h = subsystem_get("adsp");
 			if (IS_ERR(priv->pil_h)) {
 				dev_err(&pdev->dev, "%s: pil get failed,\n",
 					__func__);

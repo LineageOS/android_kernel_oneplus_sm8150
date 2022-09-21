@@ -1003,10 +1003,7 @@ static int wsa_macro_event_handler(struct snd_soc_codec *codec, u16 event,
 			}
 		}
 		break;
-	case BOLERO_MACRO_EVT_SSR_UP:
-		trace_printk("%s, enter SSR up\n", __func__);
-		/* reset swr after ssr/pdr */
-		wsa_priv->reset_swr = true;
+	case BOLERO_MACRO_EVT_PRE_SSR_UP:
 		/* enable&disable WSA_CORE_CLK to reset GFMUX reg */
 		ret = bolero_clk_rsc_request_clock(wsa_priv->dev,
 						wsa_priv->default_clk_id,
@@ -1019,6 +1016,11 @@ static int wsa_macro_event_handler(struct snd_soc_codec *codec, u16 event,
 			bolero_clk_rsc_request_clock(wsa_priv->dev,
 						wsa_priv->default_clk_id,
 						WSA_CORE_CLK, false);
+		break;
+	case BOLERO_MACRO_EVT_SSR_UP:
+		trace_printk("%s, enter SSR up\n", __func__);
+		/* reset swr after ssr/pdr */
+		wsa_priv->reset_swr = true;
 		if (wsa_priv->swr_ctrl_data)
 			swrm_wcd_notify(
 				wsa_priv->swr_ctrl_data[0].wsa_swr_pdev,
@@ -2727,6 +2729,7 @@ static void wsa_macro_init_reg(struct snd_soc_codec *codec)
 
 static int wsa_macro_core_vote(void *handle, bool enable)
 {
+	int rc = 0;
 	struct wsa_macro_priv *wsa_priv = (struct wsa_macro_priv *) handle;
 
 	if (wsa_priv == NULL) {
@@ -2735,14 +2738,22 @@ static int wsa_macro_core_vote(void *handle, bool enable)
 	}
 	if (enable) {
 		pm_runtime_get_sync(wsa_priv->dev);
+		if (bolero_check_core_votes(wsa_priv->dev))
+			rc = 0;
+		else
+			rc = -ENOTSYNC;
+	} else {
 		pm_runtime_put_autosuspend(wsa_priv->dev);
 		pm_runtime_mark_last_busy(wsa_priv->dev);
 	}
 
+	/*
 	if (bolero_check_core_votes(wsa_priv->dev))
 		return 0;
 	else
 		return -EINVAL;
+	*/
+	return rc;
 }
 
 static int wsa_swrm_clock(void *handle, bool enable)
@@ -3128,12 +3139,13 @@ static int wsa_macro_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "%s: register macro failed\n", __func__);
 		goto reg_macro_fail;
 	}
-	schedule_work(&wsa_priv->wsa_macro_add_child_devices_work);
+	//schedule_work(&wsa_priv->wsa_macro_add_child_devices_work);
 	pm_runtime_set_autosuspend_delay(&pdev->dev, AUTO_SUSPEND_DELAY);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 	pm_suspend_ignore_children(&pdev->dev, true);
 	pm_runtime_enable(&pdev->dev);
+	schedule_work(&wsa_priv->wsa_macro_add_child_devices_work);
 
 	return ret;
 reg_macro_fail:

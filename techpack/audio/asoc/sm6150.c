@@ -84,6 +84,12 @@
 #define SM6150_SOC_VERSION_1_0 0x00010000
 #define SM6150_SOC_MSM_ID 0x163
 
+#ifdef OPLUS_ARCH_EXTENDS
+static unsigned long clk_on_jiffies = 0;
+static unsigned long clk_off_jiffies = 0;
+static unsigned int clk_switch_us = 52*1000; //52ms
+#endif /* OPLUS_ARCH_EXTENDS */
+
 enum {
 	SLIM_RX_0 = 0,
 	SLIM_RX_1,
@@ -199,6 +205,13 @@ enum {
 	EXT_DISP_RX_IDX_MAX,
 };
 
+#ifdef OPLUS_ARCH_EXTENDS
+enum {
+	AFE_LOOPBACK_TX_IDX = 0,
+	AFE_LOOPBACK_TX_IDX_MAX,
+};
+#endif /* OPLUS_ARCH_EXTENDS */
+
 struct msm_wsa881x_dev_info {
 	struct device_node *of_node;
 	u32 index;
@@ -214,6 +227,9 @@ struct msm_asoc_mach_data {
 	int usbc_en2_gpio; /* used by gpio driver API */
 	int hph_en1_gpio;
 	int hph_en0_gpio;
+#ifdef OPLUS_ARCH_EXTENDS
+	int dmic_switch_gpio;
+#endif /* OPLUS_ARCH_EXTENDS */
 	struct device_node *mi2s_gpio_p[MI2S_MAX]; /* used by pinctrl API */
 	struct device_node *dmic01_gpio_p; /* used by pinctrl API */
 	struct device_node *dmic23_gpio_p; /* used by pinctrl API */
@@ -387,6 +403,12 @@ static struct dev_config cdc_dma_tx_cfg[] = {
 	[TX_CDC_DMA_TX_4] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
 };
 
+#ifdef OPLUS_ARCH_EXTENDS
+static struct dev_config afe_loopback_tx_cfg[] = {
+	[AFE_LOOPBACK_TX_IDX] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
+};
+#endif /* OPLUS_ARCH_EXTENDS */
+
 /* Default configuration of external display BE */
 static struct dev_config ext_disp_rx_cfg[] = {
 	[DP_RX_IDX] =   {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
@@ -443,6 +465,9 @@ static struct dev_config aux_pcm_tx_cfg[] = {
 	[QUIN_AUX_PCM] = {SAMPLING_RATE_8KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 };
 static int msm_vi_feed_tx_ch = 2;
+#ifdef OPLUS_ARCH_EXTENDS
+static const char *const afe_loopback_tx_ch_text[] = {"One", "Two"};
+#endif /* OPLUS_ARCH_EXTENDS */
 static const char *const slim_rx_ch_text[] = {"One", "Two"};
 static const char *const slim_tx_ch_text[] = {"One", "Two", "Three", "Four",
 						"Five", "Six", "Seven",
@@ -505,7 +530,9 @@ static char const *cdc_dma_sample_rate_text[] = {"KHZ_8", "KHZ_11P025",
 						 "KHZ_176P4", "KHZ_192",
 						 "KHZ_352P8", "KHZ_384"};
 
-
+#ifdef OPLUS_ARCH_EXTENDS
+static SOC_ENUM_SINGLE_EXT_DECL(afe_loopback_tx_chs, afe_loopback_tx_ch_text);
+#endif /* OPLUS_ARCH_EXTENDS */
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_2_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_chs, slim_tx_ch_text);
@@ -651,7 +678,11 @@ static int msm_aux_codec_init(struct snd_soc_component *component);
 static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
+	#ifndef OPLUS_ARCH_EXTENDS
 	.detect_extn_cable = true,
+	#else /* OPLUS_ARCH_EXTENDS */
+	.detect_extn_cable = false,
+	#endif /* OPLUS_ARCH_EXTENDS */
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
@@ -664,7 +695,11 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.key_code[6] = 0,
 	.key_code[7] = 0,
 	.linein_th = 5000,
+	#ifndef OPLUS_ARCH_EXTENDS
 	.moisture_en = true,
+	#else
+	.moisture_en = false,
+	#endif
 	.mbhc_micbias = MIC_BIAS_2,
 	.anc_micbias = MIC_BIAS_2,
 	.enable_anc_mic_detect = false,
@@ -1081,6 +1116,28 @@ static int slim_tx_bit_format_put(struct snd_kcontrol *kcontrol,
 
 	return 0;
 }
+
+#ifdef OPLUS_ARCH_EXTENDS
+static int afe_loopback_tx_ch_get(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_slim_[0]_rx_ch  = %d\n", __func__,
+		 afe_loopback_tx_cfg[0].channels);
+	ucontrol->value.enumerated.item[0] = afe_loopback_tx_cfg[0].channels - 1;
+
+	return 0;
+}
+
+static int afe_loopback_tx_ch_put(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	afe_loopback_tx_cfg[0].channels = ucontrol->value.enumerated.item[0] + 1;
+	pr_debug("%s: msm_slim_[0]_rx_ch  = %d\n", __func__,
+		 afe_loopback_tx_cfg[0].channels);
+
+	return 1;
+}
+#endif /* OPLUS_ARCH_EXTENDS */
 
 static int slim_rx_ch_get(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
@@ -3482,6 +3539,10 @@ static int msm_hifi_put(struct snd_kcontrol *kcontrol,
 }
 
 static const struct snd_kcontrol_new msm_int_snd_controls[] = {
+#ifdef OPLUS_ARCH_EXTENDS
+	SOC_ENUM_EXT("AFE_LOOPBACK_TX Channels", afe_loopback_tx_chs,
+			afe_loopback_tx_ch_get, afe_loopback_tx_ch_put),
+#endif /* OPLUS_ARCH_EXTENDS */
 	SOC_ENUM_EXT("WSA_CDC_DMA_RX_0 Channels", wsa_cdc_dma_rx_0_chs,
 			cdc_dma_rx_ch_get, cdc_dma_rx_ch_put),
 	SOC_ENUM_EXT("WSA_CDC_DMA_RX_1 Channels", wsa_cdc_dma_rx_1_chs,
@@ -3587,6 +3648,10 @@ static const struct snd_kcontrol_new msm_int_snd_controls[] = {
 };
 
 static const struct snd_kcontrol_new msm_ext_snd_controls[] = {
+#ifdef OPLUS_ARCH_EXTENDS
+	SOC_ENUM_EXT("AFE_LOOPBACK_TX Channels", afe_loopback_tx_chs,
+			afe_loopback_tx_ch_get, afe_loopback_tx_ch_put),
+#endif /* OPLUS_ARCH_EXTENDS */
 	SOC_ENUM_EXT("SLIM_0_RX Channels", slim_0_rx_chs,
 			slim_rx_ch_get, slim_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_2_RX Channels", slim_2_rx_chs,
@@ -4014,6 +4079,11 @@ static int msm_dmic_event(struct snd_soc_dapm_widget *w,
 	struct device_node *dmic_gpio;
 	char  *wname;
 
+	#ifdef OPLUS_ARCH_EXTENDS
+	static bool dmic_active = false;
+	unsigned int interval_us = 0;
+	#endif /* OPLUS_ARCH_EXTENDS */
+
 	wname = strpbrk(w->name, "0123");
 	if (!wname) {
 		dev_err(codec->dev, "%s: widget not found\n", __func__);
@@ -4051,6 +4121,31 @@ static int msm_dmic_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		#ifdef OPLUS_ARCH_EXTENDS
+		if (!dmic_active) {
+			if ((jiffies > clk_off_jiffies)
+				&& ((jiffies - clk_off_jiffies) < usecs_to_jiffies(clk_switch_us))) {
+				interval_us = jiffies_to_usecs(jiffies - clk_off_jiffies);
+				pr_warn("%s: clk off %d us, too short!\n", __func__, interval_us);
+				if (interval_us < clk_switch_us) {
+					usleep_range(clk_switch_us-interval_us, clk_switch_us-interval_us+50);
+					pr_warn("%s: before turn on clk, sleep %d us!\n",
+						__func__, clk_switch_us - interval_us);
+				}
+			}
+		}
+
+		if (dmic_idx == 1) {
+			if (gpio_is_valid(pdata->dmic_switch_gpio)) {
+				ret = gpio_direction_output(pdata->dmic_switch_gpio, 0);
+				pr_info("%s: dmic_switch_gpio output 0, ret:%d\n",
+					__func__, ret);
+			} else {
+				pr_err(" %s: dmic_switch_gpio invalid", __func__);
+			}
+		}
+		#endif /* OPLUS_ARCH_EXTENDS */
+
 		(*dmic_gpio_cnt)++;
 		if (*dmic_gpio_cnt == 1) {
 			ret = msm_cdc_pinctrl_select_active_state(
@@ -4061,6 +4156,12 @@ static int msm_dmic_event(struct snd_soc_dapm_widget *w,
 				return ret;
 			}
 		}
+		#ifdef OPLUS_ARCH_EXTENDS
+		if (!dmic_active) {
+			dmic_active = true;
+			clk_on_jiffies = jiffies;
+		}
+		#endif /* OPLUS_ARCH_EXTENDS */
 
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -4074,6 +4175,22 @@ static int msm_dmic_event(struct snd_soc_dapm_widget *w,
 				return ret;
 			}
 		}
+		#ifdef OPLUS_ARCH_EXTENDS
+		if (dmic_active) {
+			dmic_active = false;
+		}
+
+		if (dmic_idx == 1) {
+			if (gpio_is_valid(pdata->dmic_switch_gpio)) {
+				ret = gpio_direction_output(pdata->dmic_switch_gpio, 1);
+				pr_info("%s: dmic_switch_gpio output 1, ret:%d\n",
+					__func__, ret);
+			} else {
+				pr_err(" %s: dmic_switch_gpio invalid", __func__);
+			}
+		}
+		#endif /* OPLUS_ARCH_EXTENDS */
+
 		break;
 	default:
 		pr_err("%s: invalid DAPM event %d\n", __func__, event);
@@ -4234,14 +4351,32 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 	int rc = 0;
+#ifdef OPLUS_ARCH_EXTENDS
+	int idx = 0;
+#else /* OPLUS_ARCH_EXTENDS */
 	int idx;
+#endif /* OPLUS_ARCH_EXTENDS */
 	void *config = NULL;
 	struct snd_soc_codec *codec = NULL;
 
+#ifdef OPLUS_ARCH_EXTENDS
+	pr_debug("%s: format = %d, rate = %d, id = %d\n",
+		  __func__, params_format(params), params_rate(params), dai_link->id);
+#else /* OPLUS_ARCH_EXTENDS */
 	pr_debug("%s: format = %d, rate = %d\n",
 		  __func__, params_format(params), params_rate(params));
+#endif /* OPLUS_ARCH_EXTENDS */
 
 	switch (dai_link->id) {
+#ifdef OPLUS_ARCH_EXTENDS
+	case MSM_BACKEND_DAI_AFE_LOOPBACK_TX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				afe_loopback_tx_cfg[idx].bit_format);
+		rate->min = rate->max = afe_loopback_tx_cfg[idx].sample_rate;
+		channels->min = channels->max = afe_loopback_tx_cfg[idx].channels;
+		break;
+#endif /* OPLUS_ARCH_EXTENDS */
+
 	case MSM_BACKEND_DAI_SLIMBUS_0_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_1_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_2_RX:
@@ -5070,7 +5205,9 @@ static int msm_int_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
 	struct snd_card *card;
 	struct snd_info_entry *entry;
+	#ifndef OPLUS_ARCH_EXTENDS
 	struct snd_soc_component *aux_comp;
+	#endif /* OPLUS_ARCH_EXTENDS */
 	struct msm_asoc_mach_data *pdata =
 				snd_soc_card_get_drvdata(rtd->card);
 
@@ -5115,6 +5252,7 @@ static int msm_int_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	 */
 	dev_dbg(codec->dev, "%s: Number of aux devices: %d\n",
 		__func__, rtd->card->num_aux_devs);
+	#ifndef OPLUS_ARCH_EXTENDS
 	if (rtd->card->num_aux_devs &&
 	    !list_empty(&rtd->card->aux_comp_list)) {
 		list_for_each_entry(aux_comp, &rtd->card->aux_comp_list,
@@ -5129,6 +5267,7 @@ static int msm_int_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			}
 		}
 	}
+	#endif /* OPLUS_ARCH_EXTENDS */
 	card = rtd->card->snd_card;
 	if (!pdata->codec_root) {
 		entry = snd_info_create_subdir(card->module, "codecs",
@@ -5183,7 +5322,11 @@ static void *def_wcd_mbhc_cal(void)
 		return NULL;
 
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(wcd_mbhc_cal)->X) = (Y))
+	#ifndef OPLUS_ARCH_EXTENDS
 	S(v_hs_max, 1600);
+	#else /* OPLUS_ARCH_EXTENDS */
+	S(v_hs_max, 1700);
+	#endif
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(wcd_mbhc_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -5193,6 +5336,7 @@ static void *def_wcd_mbhc_cal(void)
 	btn_high = ((void *)&btn_cfg->_v_btn_low) +
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
+#ifndef OPLUS_ARCH_EXTENDS
 	btn_high[0] = 75;
 	btn_high[1] = 150;
 	btn_high[2] = 237;
@@ -5201,6 +5345,16 @@ static void *def_wcd_mbhc_cal(void)
 	btn_high[5] = 500;
 	btn_high[6] = 500;
 	btn_high[7] = 500;
+#else /* OPLUS_ARCH_EXTENDS */
+	btn_high[0] = 130;  /* Hook ,0 ~ 160 Ohm*/
+	btn_high[1] = 131;
+	btn_high[2] = 253;  /* Volume + ,160 ~ 360 Ohm*/
+	btn_high[3] = 425;  /* Volume - ,360 ~ 680 Ohm*/
+	btn_high[4] = 426;
+	btn_high[5] = 426;
+	btn_high[6] = 426;
+	btn_high[7] = 426;
+#endif /* OPLUS_ARCH_EXTENDS */
 
 	return wcd_mbhc_cal;
 }
@@ -5847,7 +6001,6 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	unsigned int fmt = SND_SOC_DAIFMT_CBS_CFS;
 	struct snd_soc_card *card = rtd->card;
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
-
 	dev_dbg(rtd->card->dev,
 		"%s: substream = %s  stream = %d, dai name %s, dai ID %d\n",
 		__func__, substream->name, substream->stream,
@@ -5892,6 +6045,14 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 				__func__, index, ret);
 			goto clk_off;
 		}
+		#ifdef OPLUS_ARCH_EXTENDS
+		if (index == SEC_MI2S && !mi2s_intf_conf[index].msm_is_mi2s_master) {
+			ret = snd_soc_dai_set_fmt(rtd->codec_dai, fmt|SND_SOC_DAIFMT_I2S);
+			if (ret < 0) {
+				pr_warn("%s: set codec fmt fail, ret=%d \n", __func__, ret);
+			}
+		}
+		#endif /* OPLUS_ARCH_EXTENDS */
 		if (mi2s_intf_conf[index].msm_is_ext_mclk) {
 			pr_debug("%s: Enabling mclk, clk_freq_in_hz = %u\n",
 				__func__, mi2s_mclk[index].clk_freq_in_hz);
@@ -5900,6 +6061,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			if (ret < 0) {
 				pr_err("%s: afe lpass mclk failed, err:%d\n",
 					__func__, ret);
+
 				goto clk_off;
 			}
 			mi2s_mclk[index].enable = 1;
@@ -5928,6 +6090,9 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_card *card = rtd->card;
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
+	#ifdef OPLUS_ARCH_EXTENDS
+	unsigned int interval_us = 0;
+	#endif /* OPLUS_ARCH_EXTENDS */
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
 
@@ -5947,6 +6112,23 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 			msm_cdc_pinctrl_select_sleep_state(
 					pdata->mi2s_gpio_p[index]);
 
+
+		#ifdef OPLUS_ARCH_EXTENDS
+		if (substream->stream == 1) {
+			if ((jiffies > clk_on_jiffies)
+				&&((jiffies - clk_on_jiffies) < usecs_to_jiffies(clk_switch_us))) {
+				interval_us = jiffies_to_usecs(jiffies - clk_on_jiffies);
+				pr_warn("%s: clk on %d us, too short!\n", __func__, interval_us);
+				if (interval_us < clk_switch_us) {
+					usleep_range(clk_switch_us - interval_us, clk_switch_us - interval_us + 50);
+					pr_warn("%s: before turn off clk, sleep %d us!\n",
+						__func__, clk_switch_us - interval_us);
+				}
+			}
+		}
+		#endif /* OPLUS_ARCH_EXTENDS */
+
+
 		ret = msm_mi2s_set_sclk(substream, false);
 		if (ret < 0)
 			pr_err("%s:clock disable failed for MI2S (%d); ret=%d\n",
@@ -5962,6 +6144,12 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 					__func__, index, ret);
 			mi2s_mclk[index].enable = 0;
 		}
+
+		#ifdef OPLUS_ARCH_EXTENDS
+		if ((substream->stream == 1) && (ret >= 0)) {
+			clk_off_jiffies = jiffies;
+		}
+		#endif /* OPLUS_ARCH_EXTENDS */
 	}
 	mutex_unlock(&mi2s_intf_conf[index].lock);
 }
@@ -5990,6 +6178,66 @@ static struct snd_soc_ops msm_wcn_ops = {
 static struct snd_soc_ops msm_ext_cpe_ops = {
 	.hw_params = msm_snd_cpe_hw_params,
 };
+
+#ifdef OPLUS_ARCH_EXTENDS
+static int ak4376_audrx_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);//&codec->dapm;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+
+	pr_err("%s(),dev_name:%s\n", __func__, dev_name(cpu_dai->dev));
+
+	snd_soc_dapm_ignore_suspend(dapm, "AK4376 HPL");
+	snd_soc_dapm_ignore_suspend(dapm, "AK4376 HPR");
+	snd_soc_dapm_ignore_suspend(dapm, "Playback");
+
+	snd_soc_dapm_sync(dapm);
+
+	return 0;
+}
+#endif /* OPLUS_ARCH_EXTENDS */
+
+#ifdef OPLUS_ARCH_EXTENDS
+static struct snd_soc_dai_link ak43xx_be_dai_links[] = {
+	{
+		.name = LPASS_BE_SEC_MI2S_RX,
+		.stream_name = "Secondary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.1",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "ak4376.0-0010",
+		.codec_dai_name = "ak4376-AIF1",
+		.init = ak4376_audrx_init,
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.id = MSM_BACKEND_DAI_SECONDARY_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_be_ops,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+	},
+};
+#endif /* OPLUS_ARCH_EXTENDS */
+
+#ifdef OPLUS_ARCH_EXTENDS
+static struct snd_soc_dai_link tfa98xx_be_dai_links[] = {
+	{
+		.name = LPASS_BE_TERT_MI2S_RX,
+		.stream_name = "Tertiary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.2",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tfa98xx.0-0035",
+		.codec_dai_name = "tfa98xx-aif-0-35",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.id = MSM_BACKEND_DAI_TERTIARY_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_be_ops,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+	},
+};
+#endif /* OPLUS_ARCH_EXTENDS */
 
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link msm_common_dai_links[] = {
@@ -6582,6 +6830,9 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 		.cpu_dai_name = "TX3_CDC_DMA_HOSTLESS",
 		.platform_name = "msm-pcm-hostless",
 		.dynamic = 1,
+		#ifdef OPLUS_ARCH_EXTENDS
+		.dpcm_playback = 1,
+		#endif /* OPLUS_ARCH_EXTENDS */
 		.dpcm_capture = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			    SND_SOC_DPCM_TRIGGER_POST},
@@ -6707,6 +6958,7 @@ static struct snd_soc_dai_link msm_int_compress_capture_dai[] = {
 };
 
 static struct snd_soc_dai_link msm_bolero_fe_dai_links[] = {
+	#ifndef OPLUS_ARCH_EXTENDS
 	{/* hw:x,37 */
 		.name = LPASS_BE_WSA_CDC_DMA_TX_0,
 		.stream_name = "WSA CDC DMA0 Capture",
@@ -6720,6 +6972,23 @@ static struct snd_soc_dai_link msm_bolero_fe_dai_links[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ops = &msm_cdc_dma_be_ops,
 	},
+	#else
+	{
+		.name = "Tertiary MI2S TX_Hostless",
+		.stream_name = "Tertiary MI2S_TX Hostless Capture",
+		.cpu_dai_name = "TERT_MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+	#endif
 };
 
 static struct snd_soc_dai_link msm_tasha_fe_dai_links[] = {
@@ -7843,6 +8112,24 @@ static struct snd_soc_dai_link msm_auxpcm_be_dai_links[] = {
 		.ignore_suspend = 1,
 	},
 };
+#ifdef OPLUS_ARCH_EXTENDS
+static struct snd_soc_dai_link msm_afe_rxtx_lb_be_dai_link[] = {
+	{
+		.name = LPASS_BE_AFE_LOOPBACK_TX,
+		.stream_name = "AFE Loopback Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.24577",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.id = MSM_BACKEND_DAI_AFE_LOOPBACK_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+#endif /* OPLUS_ARCH_EXTENDS */
 
 static struct snd_soc_dai_link msm_wsa_cdc_dma_be_dai_links[] = {
 	/* WSA CDC DMA Backend DAI Links */
@@ -8000,6 +8287,7 @@ static struct snd_soc_dai_link msm_rx_tx_cdc_dma_be_dai_links[] = {
 	},
 };
 
+#ifndef OPLUS_ARCH_EXTENDS
 static struct snd_soc_dai_link msm_sm6150_dai_links[
 			 ARRAY_SIZE(msm_common_dai_links) +
 			 ARRAY_SIZE(msm_tavil_fe_dai_links) +
@@ -8016,6 +8304,25 @@ static struct snd_soc_dai_link msm_sm6150_dai_links[
 			 ARRAY_SIZE(msm_auxpcm_be_dai_links) +
 			 ARRAY_SIZE(msm_wsa_cdc_dma_be_dai_links) +
 			 ARRAY_SIZE(msm_rx_tx_cdc_dma_be_dai_links)];
+#else
+static struct snd_soc_dai_link msm_sm6150_dai_links[
+			ARRAY_SIZE(msm_common_dai_links) +
+			ARRAY_SIZE(msm_tavil_fe_dai_links) +
+			ARRAY_SIZE(msm_bolero_fe_dai_links) +
+			ARRAY_SIZE(msm_tasha_fe_dai_links) +
+			ARRAY_SIZE(msm_common_misc_fe_dai_links) +
+			ARRAY_SIZE(msm_int_compress_capture_dai) +
+			ARRAY_SIZE(msm_common_be_dai_links) +
+			ARRAY_SIZE(msm_tavil_be_dai_links) +
+			ARRAY_SIZE(msm_tasha_be_dai_links) +
+			ARRAY_SIZE(msm_wcn_be_dai_links) +
+			ARRAY_SIZE(ext_disp_be_dai_link) +
+			ARRAY_SIZE(msm_mi2s_be_dai_links) +
+			ARRAY_SIZE(msm_auxpcm_be_dai_links) +
+			ARRAY_SIZE(msm_wsa_cdc_dma_be_dai_links) +
+			ARRAY_SIZE(msm_rx_tx_cdc_dma_be_dai_links) +
+			ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link)];
+#endif
 
 static int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
 {
@@ -8314,6 +8621,17 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	u32 wcn_btfm_intf = 0;
 	const struct of_device_id *match;
 	u32 tasha_codec = 0;
+#ifdef OPLUS_ARCH_EXTENDS
+	uint32_t afe_loopback_intf = 0;
+#endif /* OPLUS_ARCH_EXTENDS */
+
+	#ifdef OPLUS_ARCH_EXTENDS
+	int i = 0;
+	const char *product_name = NULL;
+	const char *oplus_speaker_type = "oplus,speaker-pa";
+	const char *oplus_headphone_type = "oplus,headphone-pa";
+	struct snd_soc_dai_link *temp_link;
+	#endif /* OPLUS_ARCH_EXTENDS */
 
 	match = of_match_node(sm6150_asoc_machine_of_match, dev->of_node);
 	if (!match) {
@@ -8431,6 +8749,43 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 				__func__);
 		} else {
 			if (mi2s_audio_intf) {
+
+				#ifdef OPLUS_ARCH_EXTENDS
+				if (!of_property_read_string(dev->of_node, oplus_headphone_type,
+						&product_name)) {
+					pr_info("%s: custom headphone product %s\n", __func__, product_name);
+					for (i = 0; i < ARRAY_SIZE(msm_mi2s_be_dai_links); i++) {
+						temp_link = &msm_mi2s_be_dai_links[i];
+						if (temp_link->id == MSM_BACKEND_DAI_SECONDARY_MI2S_RX) {
+							if (!strcmp(product_name, "akm")
+								&& soc_find_component(NULL, ak43xx_be_dai_links[0].codec_name)) {
+								pr_info("%s: use akm dailink replace\n", __func__);
+								memcpy(temp_link, &ak43xx_be_dai_links[0],
+									sizeof(ak43xx_be_dai_links[0]));
+								break;
+							}
+						}
+					}
+				}
+
+				if (!of_property_read_string(dev->of_node, oplus_speaker_type,
+						&product_name)) {
+					pr_info("%s: custom speaker product %s\n", __func__, product_name);
+					for (i = 0; i < ARRAY_SIZE(msm_mi2s_be_dai_links); i++) {
+						temp_link = &msm_mi2s_be_dai_links[i];
+						if (temp_link->id == MSM_BACKEND_DAI_TERTIARY_MI2S_RX) {
+							if (!strcmp(product_name, "nxp")
+								&& soc_find_component(NULL, tfa98xx_be_dai_links[0].codec_name)) {
+								pr_info("%s: use nxp dailink replace\n", __func__);
+								memcpy(temp_link, &tfa98xx_be_dai_links[0],
+									sizeof(tfa98xx_be_dai_links[0]));
+								break;
+							}
+						}
+					}
+				}
+				#endif /* OPLUS_ARCH_EXTENDS */
+
 				memcpy(msm_sm6150_dai_links + total_links,
 					msm_mi2s_be_dai_links,
 					sizeof(msm_mi2s_be_dai_links));
@@ -8471,6 +8826,22 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			}
 		}
 
+#ifdef OPLUS_ARCH_EXTENDS
+		rc = of_property_read_u32(dev->of_node, "qcom,afe-rxtx-lb",
+					&afe_loopback_intf);
+		if (rc) {
+			dev_dbg(dev, "%s: No DT match AFE loopback audio interface\n",
+				__func__);
+		} else {
+			if (afe_loopback_intf) {
+				memcpy(msm_sm6150_dai_links + total_links,
+				msm_afe_rxtx_lb_be_dai_link,
+				sizeof(msm_afe_rxtx_lb_be_dai_link));
+				total_links +=
+				ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link);
+			}
+		}
+#endif /* OPLUS_ARCH_EXTENDS */
 		dailink = msm_sm6150_dai_links;
 	} else if (!strcmp(match->data, "stub_codec")) {
 		card = &snd_soc_card_stub_msm;
@@ -9088,7 +9459,7 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	struct msm_asoc_mach_data *pdata;
 	const char *mbhc_audio_jack_type = NULL;
 	int ret;
-
+    pr_err("%s: Enter  OUTDIR msm_asoc_machine_probe ret = %d\n",__func__, ret);
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "No platform supplied from device tree\n");
 		return -EINVAL;
@@ -9164,6 +9535,28 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "property %s not detected in node %s",
 			"qcom,hph-en0-gpio", pdev->dev.of_node->full_name);
 	}
+
+#ifdef OPLUS_ARCH_EXTENDS
+	pdata->dmic_switch_gpio = of_get_named_gpio(pdev->dev.of_node,
+						"dmic-switch-gpio", 0);
+	if (!gpio_is_valid(pdata->dmic_switch_gpio)) {
+		dev_err(&pdev->dev, "property %s not detected in node %s",
+			"dmic-switch-gpio", pdev->dev.of_node->full_name);
+	}
+	if (gpio_is_valid(pdata->dmic_switch_gpio)) {
+		pr_debug("%s: dmic_switch_gpio request %d\n", __func__,
+			pdata->dmic_switch_gpio);
+		ret = gpio_request(pdata->dmic_switch_gpio, "dmic_switch_gpio");
+		if (ret) {
+			pr_err("%s: dmic_switch_gpio request failed, ret:%d\n",
+				__func__, ret);
+		} else {
+			ret = gpio_direction_output(pdata->dmic_switch_gpio, 1);
+			pr_info("%s: dmic_switch_gpio output 1, ret:%d\n",
+				__func__, ret);
+		}
+	}
+#endif /* OPLUS_ARCH_EXTENDS */
 
 	ret = msm_ext_prepare_hifi(pdata);
 	if (ret) {
@@ -9250,7 +9643,7 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	if (ret)
 		pr_err("%s: Registration with SND event FWK failed ret = %d\n",
 			__func__, ret);
-
+    pr_err("%s: Exit OUTDIR msm_asoc_machine_probe ret = %d\n",__func__, ret);
 err:
 	return ret;
 }

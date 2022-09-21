@@ -50,6 +50,11 @@ enum adm_cal_status {
 	ADM_STATUS_MAX,
 };
 
+#ifdef OPLUS_BUG_STABILITY
+static bool is_usb_timeout = false;
+static bool close_usb = false;
+#endif //OPLUS_BUG_STABILITY
+
 struct adm_copp {
 
 	atomic_t id[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
@@ -1724,6 +1729,22 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 				   open->copp_id);
 			pr_debug("%s: coppid rxed=%d\n", __func__,
 				 open->copp_id);
+
+			#ifdef OPLUS_BUG_STABILITY
+			if(is_usb_timeout && (IDX_AFE_PORT_ID_USB_RX == port_idx))
+			{
+
+				pr_debug("%s:usb port need be closed\n", __func__);
+				close_usb = true;
+			}
+
+			if(close_usb && (IDX_AFE_PORT_ID_PRIMARY_MI2S_RX == port_idx))
+			{
+				pr_debug("%s: enable usb port\n", __func__);
+				is_usb_timeout = false;
+			}
+			#endif //OPLUS_BUG_STABILITY
+
 			wake_up(&this_adm.copp.wait[port_idx][copp_idx]);
 			}
 			break;
@@ -2138,7 +2159,10 @@ static struct cal_block_data *adm_find_cal_by_path(int cal_index, int path)
 
 		if (cal_index == ADM_AUDPROC_CAL ||
 		    cal_index == ADM_LSM_AUDPROC_CAL ||
-		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL) {
+#ifdef OPLUS_ARCH_EXTENDS
+		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL ||
+		    cal_index == ADM_AUDPROC_PERSISTENT_CAL) {
+#endif /* OPLUS_ARCH_EXTENDS */
 			audproc_cal_info = cal_block->cal_info;
 			if ((audproc_cal_info->path == path) &&
 			    (cal_block->cal_data.size > 0))
@@ -2176,7 +2200,10 @@ static struct cal_block_data *adm_find_cal_by_app_type(int cal_index, int path,
 
 		if (cal_index == ADM_AUDPROC_CAL ||
 		    cal_index == ADM_LSM_AUDPROC_CAL ||
-		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL) {
+#ifdef OPLUS_ARCH_EXTENDS
+		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL ||
+		    cal_index == ADM_AUDPROC_PERSISTENT_CAL) {
+#endif /* OPLUS_ARCH_EXTENDS */
 			audproc_cal_info = cal_block->cal_info;
 			if ((audproc_cal_info->path == path) &&
 			    (audproc_cal_info->app_type == app_type) &&
@@ -2217,7 +2244,10 @@ static struct cal_block_data *adm_find_cal(int cal_index, int path,
 
 		if (cal_index == ADM_AUDPROC_CAL ||
 		    cal_index == ADM_LSM_AUDPROC_CAL ||
-		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL) {
+#ifdef OPLUS_ARCH_EXTENDS
+		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL||
+		    cal_index == ADM_AUDPROC_PERSISTENT_CAL) {
+#endif /* OPLUS_ARCH_EXTENDS */
 			audproc_cal_info = cal_block->cal_info;
 			if ((audproc_cal_info->path == path) &&
 			    (audproc_cal_info->app_type == app_type) &&
@@ -2308,6 +2338,11 @@ static void send_adm_cal(int port_id, int copp_idx, int path, int perf_mode,
 	if (passthr_mode != LISTEN) {
 		send_adm_cal_type(ADM_AUDPROC_CAL, path, port_id, copp_idx,
 				perf_mode, app_type, acdb_id, sample_rate);
+#ifdef OPLUS_ARCH_EXTENDS
+		send_adm_cal_type(ADM_AUDPROC_PERSISTENT_CAL, path,
+				  port_id, copp_idx, perf_mode, app_type,
+				  acdb_id, sample_rate);
+#endif /* OPLUS_ARCH_EXTENDS */
 	} else {
 		send_adm_cal_type(ADM_LSM_AUDPROC_CAL, path, port_id, copp_idx,
 				  perf_mode, app_type, acdb_id, sample_rate);
@@ -2973,6 +3008,14 @@ exit:
  *
  * Returns 0 on success or error on failure
  */
+#ifdef OPLUS_ARCH_EXTENDS
+#define VOICE_TOPOLOGY_LVIMFQ_TX_DM    0x1000BFF5
+#endif /* OPLUS_ARCH_EXTENDS */
+
+#ifdef OPLUS_FEATURE_KTV
+#define AUDIO_TOPOLOGY_KTV    0x10001080
+#endif /* OPLUS_FEATURE_KTV */
+
 int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	     int perf_mode, uint16_t bit_width, int app_type, int acdb_id,
 	     int session_type)
@@ -2998,6 +3041,14 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 
 	port_id = q6audio_convert_virtual_to_portid(port_id);
 	port_idx = adm_validate_and_get_port_index(port_id);
+
+	#ifdef OPLUS_BUG_STABILITY
+	if(is_usb_timeout && (AFE_PORT_ID_USB_RX == port_id)){
+		pr_err("%s: USB RX timeout return\n", __func__);
+		return -EINVAL;
+	}
+	#endif //OPLUS_BUG_STABILITY
+
 	if (port_idx < 0) {
 		pr_err("%s: Invalid port_id 0x%x\n", __func__, port_id);
 		return -EINVAL;
@@ -3059,11 +3110,29 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			rate = 16000;
 	}
 
+	#ifdef OPLUS_ARCH_EXTENDS
+	if ((topology == VOICE_TOPOLOGY_LVIMFQ_TX_DM)
+		&& (rate != ADM_CMD_COPP_OPEN_SAMPLE_RATE_48K)) {
+		pr_info("%s: Change rate %d to 48K for copp 0x%x",
+			__func__, rate, topology);
+		rate = 48000;
+	}
+	#endif /* OPLUS_ARCH_EXTENDS */
+
 	if (topology == FFECNS_TOPOLOGY) {
 		this_adm.ffecns_port_id = port_id;
 		pr_debug("%s: ffecns port id =%x\n", __func__,
 				this_adm.ffecns_port_id);
 	}
+
+#ifdef OPLUS_FEATURE_KTV
+	if ((topology == AUDIO_TOPOLOGY_KTV)
+			&& (rate != ADM_CMD_COPP_OPEN_SAMPLE_RATE_48K)) {
+			pr_info("%s: Change rate %d to 48K for copp 0x%x",
+					__func__, rate, topology);
+			rate = 48000;
+	}
+#endif /* OPLUS_FEATURE_KTV */
 
 	if (topology == VPM_TX_VOICE_SMECNS_V2_COPP_TOPOLOGY)
 		channel_mode = 1;
@@ -3376,6 +3445,11 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		if (!ret) {
 			pr_err("%s: ADM open timedout for port_id: 0x%x for [0x%x]\n",
 						__func__, tmp_port, port_id);
+			#ifdef OPLUS_BUG_STABILITY
+			if(AFE_PORT_ID_USB_RX == port_id){
+				is_usb_timeout = true;
+			}
+			#endif //OPLUS_BUG_STABILITY
 			return -EINVAL;
 		} else if (atomic_read(&this_adm.copp.stat
 					[port_idx][copp_idx]) > 0) {
@@ -3798,6 +3872,12 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 	int ret = 0, port_idx;
 	int copp_id = RESET_COPP_ID;
 
+	#ifdef OPLUS_BUG_STABILITY
+	int usb_copp_id = RESET_COPP_ID;
+	int usb_copp_idx = 0;
+	struct apr_hdr usb_close;
+	#endif //OPLUS_BUG_STABILITY
+
 	pr_debug("%s: port_id=0x%x perf_mode: %d copp_idx: %d\n", __func__,
 		 port_id, perf_mode, copp_idx);
 
@@ -3863,6 +3943,70 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 			atomic_set(&this_adm.mem_map_handles[
 					ADM_MEM_MAP_INDEX_SOURCE_TRACKING], 0);
 		}
+
+		#ifdef OPLUS_BUG_STABILITY
+		if(close_usb)
+		{
+			for(usb_copp_idx = 0; usb_copp_idx < 8; usb_copp_idx++){
+
+				usb_copp_id = adm_get_copp_id(IDX_AFE_PORT_ID_USB_RX, usb_copp_idx);
+
+				if(usb_copp_id == RESET_COPP_ID) continue;
+
+				pr_err("%s: usb_copp_id = %d\n", __func__, usb_copp_id);
+
+				usb_close.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+								APR_HDR_LEN(APR_HDR_SIZE),
+								APR_PKT_VER);
+				usb_close.pkt_size = sizeof(usb_close);
+				usb_close.src_svc = APR_SVC_ADM;
+				usb_close.src_domain = APR_DOMAIN_APPS;
+				usb_close.src_port = AFE_PORT_ID_USB_RX;
+				usb_close.dest_svc = APR_SVC_ADM;
+				usb_close.dest_domain = APR_DOMAIN_ADSP;
+				usb_close.dest_port = usb_copp_id;
+				usb_close.token = IDX_AFE_PORT_ID_USB_RX << 16 | usb_copp_idx;
+				usb_close.opcode = ADM_CMD_DEVICE_CLOSE_V5;
+
+				atomic_set(&this_adm.copp.id[IDX_AFE_PORT_ID_USB_RX][usb_copp_idx],
+					   RESET_COPP_ID);
+				atomic_set(&this_adm.copp.cnt[IDX_AFE_PORT_ID_USB_RX][usb_copp_idx], 0);
+				atomic_set(&this_adm.copp.topology[IDX_AFE_PORT_ID_USB_RX][usb_copp_idx], 0);
+				atomic_set(&this_adm.copp.mode[IDX_AFE_PORT_ID_USB_RX][usb_copp_idx], 0);
+				atomic_set(&this_adm.copp.stat[IDX_AFE_PORT_ID_USB_RX][usb_copp_idx], -1);
+				atomic_set(&this_adm.copp.rate[IDX_AFE_PORT_ID_USB_RX][usb_copp_idx], 0);
+				atomic_set(&this_adm.copp.channels[IDX_AFE_PORT_ID_USB_RX][usb_copp_idx], 0);
+				atomic_set(&this_adm.copp.bit_width[IDX_AFE_PORT_ID_USB_RX][usb_copp_idx], 0);
+				atomic_set(&this_adm.copp.app_type[IDX_AFE_PORT_ID_USB_RX][usb_copp_idx], 0);
+
+				clear_bit(ADM_STATUS_CALIBRATION_REQUIRED,
+				(void *)&this_adm.copp.adm_status[IDX_AFE_PORT_ID_USB_RX][usb_copp_idx]);
+
+				ret = apr_send_pkt(this_adm.apr, (uint32_t *)&usb_close);
+				if (ret < 0) {
+					pr_err("%s: ADM close failed %d\n", __func__, ret);
+				}
+				else
+					pr_err("%s: ADM close ok %d\n", __func__, ret);
+			}
+
+			close_usb = false;
+
+			pr_err("%s: close_usb done \n", __func__);
+
+			if(AFE_PORT_ID_USB_RX == port_id)
+			{
+				pr_err("%s: close_usb return \n", __func__);
+
+				if (perf_mode != ULTRA_LOW_LATENCY_PCM_MODE) {
+					pr_debug("%s: remove adm device from rtac\n", __func__);
+					rtac_remove_adm_device(port_id, copp_id);
+				}
+				return 0;
+			}
+
+		}
+		#endif //OPLUS_BUG_STABILITY
 
 		close.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 						APR_HDR_LEN(APR_HDR_SIZE),
@@ -4123,6 +4267,11 @@ static int get_cal_type_index(int32_t cal_type)
 	case ADM_LSM_AUDPROC_PERSISTENT_CAL_TYPE:
 		ret = ADM_LSM_AUDPROC_PERSISTENT_CAL;
 		break;
+#ifdef OPLUS_ARCH_EXTENDS
+	case ADM_AUDPROC_PERSISTENT_CAL_TYPE:
+		ret = ADM_AUDPROC_PERSISTENT_CAL;
+		break;
+#endif /* OPLUS_ARCH_EXTENDS */
 	default:
 		pr_err("%s: invalid cal type %d!\n", __func__, cal_type);
 	}
@@ -4350,6 +4499,14 @@ static int adm_init_cal_data(void)
 		  adm_set_cal, NULL, NULL} },
 		 {adm_map_cal_data, adm_unmap_cal_data,
 		  cal_utils_match_buf_num} },
+
+#ifdef OPLUS_ARCH_EXTENDS
+		{{ADM_AUDPROC_PERSISTENT_CAL_TYPE,
+		 {adm_alloc_cal, adm_dealloc_cal, NULL,
+		  adm_set_cal, NULL, NULL} },
+		 {adm_map_cal_data, adm_unmap_cal_data,
+		  cal_utils_match_buf_num} },
+#endif /* OPLUS_ARCH_EXTENDS */
 	};
 	pr_debug("%s:\n", __func__);
 
@@ -4403,6 +4560,53 @@ int adm_set_volume(int port_id, int copp_idx, int volume)
 	return rc;
 }
 EXPORT_SYMBOL(adm_set_volume);
+
+#ifdef OPLUS_FEATURE_KTV
+int  adm_set_reverb_param(int port_id, int copp_idx, int32_t* params)
+{
+	struct audproc_revert_param audproc_param;
+	struct param_hdr_v3 param_hdr;
+	int rc  = 0;
+
+	pr_debug("%s, portid %d, copp idx %d\n", __func__, port_id, copp_idx);
+
+	memset(&audproc_param, 0, sizeof(audproc_param));
+	memset(&param_hdr, 0, sizeof(param_hdr));
+	param_hdr.module_id = 0x10001081;
+	param_hdr.instance_id = 0x8000;
+	param_hdr.param_id = 0x10001082;
+	param_hdr.param_size = sizeof(audproc_param);
+
+	audproc_param.mode = params[0];
+	audproc_param.volume = params[1];
+	audproc_param.peg = params[2];
+	audproc_param.pitchange = params[3];
+	audproc_param.reverbparam= params[4];
+	audproc_param.enabled= params[5];
+	audproc_param.reverved0 = params[6];
+	audproc_param.reverved1 = params[7];
+	audproc_param.reverved2 = params[8];
+	audproc_param.reverved3 = params[9];
+	audproc_param.reverved4 = params[10];
+	audproc_param.reverved5 = params[11];
+	audproc_param.reverved6 = params[12];
+	audproc_param.reverved7 = params[13];
+	audproc_param.reverved8 = params[14];
+	audproc_param.reverved9 = params[15];
+	audproc_param.reverved10 = params[16];
+	audproc_param.reverved11 = params[17];
+	audproc_param.reverved12 = params[18];
+	audproc_param.reverved13 = params[19];
+
+	rc = adm_pack_and_set_one_pp_param(port_id, copp_idx, param_hdr,
+					   (uint8_t *) &audproc_param);
+	if (rc)
+		pr_err("%s: Failed to set volume, err %d\n", __func__, rc);
+
+	return rc;
+}
+EXPORT_SYMBOL(adm_set_reverb_param);
+#endif /* OPLUS_FEATURE_KTV */
 
 /**
  * adm_set_softvolume -
@@ -4911,7 +5115,17 @@ int adm_store_cal_data(int port_id, int copp_idx, int path, int perf_mode,
 			rc = -ENOMEM;
 			goto unlock;
 		}
-	} else if (cal_index == ADM_AUDVOL_CAL) {
+#ifdef OPLUS_ARCH_EXTENDS
+	} else if (cal_index == ADM_AUDPROC_PERSISTENT_CAL) {
+		if (cal_block->cal_data.size > AUD_PROC_PERSIST_BLOCK_SIZE) {
+			pr_err("%s:persist invalid size exp/actual[%zd, %d]\n",
+				__func__, cal_block->cal_data.size, *size);
+			rc = -ENOMEM;
+			goto unlock;
+		}
+	}
+#endif /* OPLUS_ARCH_EXTENDS */
+	else if (cal_index == ADM_AUDVOL_CAL) {
 		if (cal_block->cal_data.size > AUD_VOL_BLOCK_SIZE) {
 			pr_err("%s:aud_vol:invalid size exp/actual[%zd, %d]\n",
 				__func__, cal_block->cal_data.size, *size);

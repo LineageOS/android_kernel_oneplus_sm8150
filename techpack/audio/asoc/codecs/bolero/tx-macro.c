@@ -47,9 +47,13 @@
 #define TX_MACRO_SWR_MIC_MUX_SEL_MASK 0xF
 #define TX_MACRO_ADC_MUX_CFG_OFFSET 0x2
 
-#define TX_MACRO_TX_UNMUTE_DELAY_MS	40
+#ifndef OPLUS_BUG_STABILITY
+#define TX_MACRO_DMIC_UNMUTE_DELAY_MS	40
+#else /* OPLUS_BUG_STABILITY */
+#define TX_MACRO_DMIC_UNMUTE_DELAY_MS	50
+#endif /* OPLUS_BUG_STABILITY */
 
-static int tx_unmute_delay = TX_MACRO_TX_UNMUTE_DELAY_MS;
+static int tx_unmute_delay = TX_MACRO_DMIC_UNMUTE_DELAY_MS;
 module_param(tx_unmute_delay, int, 0664);
 MODULE_PARM_DESC(tx_unmute_delay, "delay to unmute the tx path");
 
@@ -434,6 +438,9 @@ static void tx_macro_tx_hpf_corner_freq_callback(struct work_struct *work)
 			goto tx_hpf_set;
 		/* analog mic clear TX hold */
 		bolero_clear_amic_tx_hold(codec->dev, adc_n);
+		#ifdef OPLUS_BUG_STABILITY
+		usleep_range(30, 35);
+		#endif /* OPLUS_BUG_STABILITY */
 	}
 tx_hpf_set:
 	snd_soc_update_bits(codec, dec_cfg_reg, TX_HPF_CUT_OFF_FREQ_MASK,
@@ -789,7 +796,11 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 				 * Minimum 1 clk cycle delay is required
 				 * as per HW spec
 				 */
+				#ifndef OPLUS_BUG_STABILITY
 				usleep_range(1000, 1010);
+				#else /* OPLUS_BUG_STABILITY */
+				usleep_range(30, 35);
+				#endif /* OPLUS_BUG_STABILITY */
 				snd_soc_update_bits(codec, hpf_gate_reg,
 						0x02, 0x00);
 			}

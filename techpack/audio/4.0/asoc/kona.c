@@ -39,6 +39,23 @@
 #include "codecs/bolero/wsa-macro.h"
 #include "kona-port-config.h"
 
+#ifdef OPLUS_FEATURE_AUDIO_FTM
+#include "dailink_extends.h"
+#endif /* OPLUS_FEATURE_AUDIO_FTM */
+
+//#ifdef OPLUS_ARCH_EXTENDS
+#ifdef CONFIG_SND_SOC_SIA81XX
+#include "codecs/sia81xx/sia81xx_aux_dev_if.h"
+#endif /* CONFIG_SND_SOC_SIA81XX */
+//#endif /* OPLUS_ARCH_EXTENDS */
+
+/* #ifdef OPLUS_ARCH_EXTENDS */
+#define CONFIG_SND_SOC_AWINIC_AW882XX
+#ifdef CONFIG_SND_SOC_AWINIC_AW882XX //add by Jerry
+extern void aw_cal_unmap_memory(void);
+#endif /*CONFIG_SND_SOC_AWINIC_AW882XX*/
+/* #endif OPLUS_ARCH_EXTENDS */
+
 #define DRV_NAME "kona-asoc-snd"
 #define __CHIPSET__ "KONA "
 #define MSM_DAILINK_NAME(name) (__CHIPSET__#name)
@@ -70,7 +87,12 @@
 #define CODEC_EXT_CLK_RATE          9600000
 #define ADSP_STATE_READY_TIMEOUT_MS 3000
 #define DEV_NAME_STR_LEN            32
+#ifndef OPLUS_ARCH_EXTENDS
 #define WCD_MBHC_HS_V_MAX           1600
+#else /* OPLUS_ARCH_EXTENDS */
+#define WCD_MBHC_HS_V_MAX           1700
+#endif /* OPLUS_ARCH_EXTENDS */
+
 
 #define TDM_CHANNEL_MAX		8
 #define DEV_NAME_STR_LEN	32
@@ -481,7 +503,11 @@ static struct dev_config mi2s_rx_cfg[] = {
 static struct dev_config mi2s_tx_cfg[] = {
 	[PRIM_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[SEC_MI2S]  = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
+	#ifdef CONFIG_SND_SOC_AW882XX
+	[TERT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
+	#else /*CONFIG_SND_SOC_AW882XX*/
 	[TERT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
+	#endif /*CONFIG_SND_SOC_AW882XX*/
 	[QUAT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[QUIN_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[SEN_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
@@ -887,7 +913,11 @@ static void *def_wcd_mbhc_cal(void);
 static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
+	#ifndef OPLUS_ARCH_EXTENDS
 	.detect_extn_cable = true,
+	#else /* OPLUS_ARCH_EXTENDS */
+	.detect_extn_cable = false,
+	#endif /* OPLUS_ARCH_EXTENDS */
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
@@ -904,8 +934,17 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.mbhc_micbias = MIC_BIAS_2,
 	.anc_micbias = MIC_BIAS_2,
 	.enable_anc_mic_detect = false,
+	#ifndef OPLUS_ARCH_EXTENDS
 	.moisture_duty_cycle_en = true,
+	#else /*OPLUS_ARCH_EXTENDS*/
+	.moisture_duty_cycle_en = false,
+	#endif /*OPLUS_ARCH_EXTENDS*/
 };
+
+#ifdef OPLUS_ARCH_EXTENDS
+extern void extend_codec_i2s_be_dailinks(struct snd_soc_dai_link *dailink, size_t size);
+static void (*extend_i2s_be_dailinks_func)(struct snd_soc_dai_link *dailink, size_t size);
+#endif /* OPLUS_ARCH_EXTENDS */
 
 static inline int param_is_mask(int p)
 {
@@ -4484,7 +4523,11 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
 	if (!pdata->fsa_handle)
 		return false;
 
+	#ifndef OPLUS_ARCH_EXTENDS
 	return fsa4480_switch_event(pdata->fsa_handle, FSA_MIC_GND_SWAP);
+	#else
+	return (0 == fsa4480_switch_event(pdata->fsa_handle, FSA_MIC_GND_SWAP));
+	#endif /* OPLUS_ARCH_EXTENDS */
 }
 
 static bool msm_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
@@ -4963,6 +5006,9 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	int index = cpu_dai->id;
+	#ifdef OPLUS_FEATURE_MI2S_SLAVE
+	int port_id = msm_get_port_id(rtd->dai_link->id);
+	#endif /* OPLUS_FEATURE_MI2S_SLAVE */
 	unsigned int fmt = SND_SOC_DAIFMT_CBS_CFS;
 	struct snd_soc_card *card = rtd->card;
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
@@ -4972,6 +5018,14 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		"%s: substream = %s  stream = %d, dai name %s, dai ID %d\n",
 		__func__, substream->name, substream->stream,
 		cpu_dai->name, cpu_dai->id);
+
+	#ifdef OPLUS_FEATURE_MI2S_SLAVE
+	if (port_id < 0) {
+		dev_err(rtd->card->dev, "%s: Invalid port_id\n", __func__);
+		ret = port_id;
+		goto err;
+	}
+	#endif /* OPLUS_FEATURE_MI2S_SLAVE */
 
 	if (index < PRIM_MI2S || index >= MI2S_MAX) {
 		ret = -EINVAL;
@@ -5067,11 +5121,22 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	int ret = 0;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	int index = rtd->cpu_dai->id;
+	#ifdef OPLUS_FEATURE_MI2S_SLAVE
+	int port_id = msm_get_port_id(rtd->dai_link->id);
+	#endif /* OPLUS_FEATURE_MI2S_SLAVE */
 	struct snd_soc_card *card = rtd->card;
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
+
+	#ifdef OPLUS_FEATURE_MI2S_SLAVE
+	if (port_id < 0) {
+		dev_err(rtd->card->dev, "%s: Invalid port_id\n", __func__);
+		return;
+	}
+	#endif /* OPLUS_FEATURE_MI2S_SLAVE */
+
 	if (index < PRIM_MI2S || index >= MI2S_MAX) {
 		pr_err("%s:invalid MI2S DAI(%d)\n", __func__, index);
 		return;
@@ -5477,6 +5542,7 @@ static void *def_wcd_mbhc_cal(void)
 	btn_high = ((void *)&btn_cfg->_v_btn_low) +
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
+	#ifndef OPLUS_ARCH_EXTENDS
 	btn_high[0] = 75;
 	btn_high[1] = 150;
 	btn_high[2] = 237;
@@ -5485,6 +5551,16 @@ static void *def_wcd_mbhc_cal(void)
 	btn_high[5] = 500;
 	btn_high[6] = 500;
 	btn_high[7] = 500;
+	#else /* OPLUS_ARCH_EXTENDS */
+	btn_high[0] = 130;		/* Hook ,0 ~ 160 Ohm*/
+	btn_high[1] = 131;
+	btn_high[2] = 253;		/* Volume + ,160 ~ 360 Ohm*/
+	btn_high[3] = 425;		/* Volume - ,360 ~ 680 Ohm*/
+	btn_high[4] = 426;
+	btn_high[5] = 426;
+	btn_high[6] = 426;
+	btn_high[7] = 426;
+	#endif /* OPLUS_ARCH_EXTENDS */
 
 	return wcd_mbhc_cal;
 }
@@ -5999,6 +6075,9 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 		.cpu_dai_name = "TX3_CDC_DMA_HOSTLESS",
 		.platform_name = "msm-pcm-hostless",
 		.dynamic = 1,
+		#ifdef OPLUS_FEATURE_AUDIO_FTM
+		.dpcm_playback = 1,
+		#endif /* OPLUS_FEATURE_AUDIO_FTM */
 		.dpcm_capture = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			    SND_SOC_DPCM_TRIGGER_POST},
@@ -6134,6 +6213,10 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ops = &msm_cdc_dma_be_ops,
 	},
+	#ifdef OPLUS_FEATURE_AUDIO_FTM
+	TX_CDC_DMA_HOSTLESS_DAILINK("TX4_CDC_DMA Hostless", "TX4_CDC_DMA Hostless", "TX4_CDC_DMA_HOSTLESS"),
+
+	#endif /* OPLUS_FEATURE_AUDIO_FTM */
 };
 
 static struct snd_soc_dai_link msm_common_be_dai_links[] = {
@@ -6949,7 +7032,9 @@ static struct snd_soc_dai_link msm_wsa_cdc_dma_be_dai_links[] = {
 		.codec_dai_name = "wsa_macro_rx1",
 		.no_pcm = 1,
 		.dpcm_playback = 1,
+		#ifndef OPLUS_FEATURE_PLATFORM_ATOLL
 		.init = &msm_int_audrx_init,
+		#endif /* OPLUS_FEATURE_PLATFORM_ATOLL */
 		.id = MSM_BACKEND_DAI_WSA_CDC_DMA_RX_0,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_pmdown_time = 1,
@@ -7094,6 +7179,9 @@ static struct snd_soc_dai_link msm_va_cdc_dma_be_dai_links[] = {
 		.codec_dai_name = "va_macro_tx1",
 		.no_pcm = 1,
 		.dpcm_capture = 1,
+		#ifdef OPLUS_FEATURE_PLATFORM_ATOLL
+		.init = &msm_int_audrx_init,
+		#endif /* OPLUS_FEATURE_PLATFORM_ATOLL */
 		.id = MSM_BACKEND_DAI_VA_CDC_DMA_TX_0,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
@@ -7359,6 +7447,9 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	u32 auxpcm_audio_intf = 0;
 	u32 val = 0;
 	u32 wcn_btfm_intf = 0;
+	#ifdef OPLUS_FEATURE_PLATFORM_ATOLL
+	u32 wsa_bolero_codec = 0;
+	#endif /* OPLUS_FEATURE_PLATFORM_ATOLL */
 	const struct of_device_id *match;
 
 	match = of_match_node(kona_asoc_machine_of_match, dev->of_node);
@@ -7376,11 +7467,31 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		       sizeof(msm_common_dai_links));
 		total_links += ARRAY_SIZE(msm_common_dai_links);
 
+		#ifndef OPLUS_FEATURE_PLATFORM_ATOLL
 		memcpy(msm_kona_dai_links + total_links,
 		       msm_bolero_fe_dai_links,
 		       sizeof(msm_bolero_fe_dai_links));
 		total_links +=
 			ARRAY_SIZE(msm_bolero_fe_dai_links);
+		#else /* OPLUS_FEATURE_PLATFORM_ATOLL */
+		rc = of_property_read_u32(dev->of_node, "qcom,wsa-bolero-codec",
+					  &wsa_bolero_codec);
+		if (rc) {
+			dev_dbg(dev, "%s: No DT match WSA Macro codec\n",
+				__func__);
+		} else {
+			if (wsa_bolero_codec) {
+				dev_dbg(dev, "%s(): WSA macro in bolero codec present\n",
+					__func__);
+
+				memcpy(msm_kona_dai_links + total_links,
+				       msm_bolero_fe_dai_links,
+				       sizeof(msm_bolero_fe_dai_links));
+				total_links +=
+					ARRAY_SIZE(msm_bolero_fe_dai_links);
+			}
+		}
+		#endif /* OPLUS_FEATURE_PLATFORM_ATOLL */
 
 		memcpy(msm_kona_dai_links + total_links,
 		       msm_common_misc_fe_dai_links,
@@ -7392,11 +7503,23 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		       sizeof(msm_common_be_dai_links));
 		total_links += ARRAY_SIZE(msm_common_be_dai_links);
 
+		#ifndef OPLUS_FEATURE_PLATFORM_ATOLL
 		memcpy(msm_kona_dai_links + total_links,
 		       msm_wsa_cdc_dma_be_dai_links,
 		       sizeof(msm_wsa_cdc_dma_be_dai_links));
 		total_links +=
 			ARRAY_SIZE(msm_wsa_cdc_dma_be_dai_links);
+		#else /* OPLUS_FEATURE_PLATFORM_ATOLL */
+		if (wsa_bolero_codec) {
+			dev_dbg(dev, "%s(): WSAmacro in bolero codec present\n",
+				__func__);
+			memcpy(msm_kona_dai_links + total_links,
+			       msm_wsa_cdc_dma_be_dai_links,
+			       sizeof(msm_wsa_cdc_dma_be_dai_links));
+			total_links +=
+				ARRAY_SIZE(msm_wsa_cdc_dma_be_dai_links);
+		}
+		#endif /* OPLUS_FEATURE_PLATFORM_ATOLL */
 
 		memcpy(msm_kona_dai_links + total_links,
 		       msm_rx_tx_cdc_dma_be_dai_links,
@@ -7417,6 +7540,12 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 				__func__);
 		} else {
 			if (mi2s_audio_intf) {
+				#ifdef OPLUS_ARCH_EXTENDS
+				extend_i2s_be_dailinks_func = symbol_request(extend_codec_i2s_be_dailinks);
+				if(extend_i2s_be_dailinks_func){
+					extend_i2s_be_dailinks_func(msm_mi2s_be_dai_links, ARRAY_SIZE(msm_mi2s_be_dai_links));
+				}
+				#endif /* OPLUS_ARCH_EXTENDS */
 				memcpy(msm_kona_dai_links + total_links,
 					msm_mi2s_be_dai_links,
 					sizeof(msm_mi2s_be_dai_links));
@@ -7714,6 +7843,20 @@ static int msm_init_aux_dev(struct platform_device *pdev,
 	int codecs_found = 0;
 	int ret = 0;
 
+	//#ifdef OPLUS_ARCH_EXTENDS
+	#ifdef CONFIG_SND_SOC_SIA81XX
+	const char *product_name = NULL;
+	unsigned int sia81xx_num = 0;
+
+	ret = of_property_read_string(pdev->dev.of_node, "oplus,speaker-pa-device", &product_name);
+	if (ret) {
+		dev_info(&pdev->dev,
+			 "%s: oplus,speaker-pa property missing in DT %s, ret = %d\n",
+			 __func__, pdev->dev.of_node->full_name, ret);
+	}
+	#endif /* CONFIG_SND_SOC_SIA81XX */
+	//#endif /* OPLUS_ARCH_EXTENDS */
+
 	/* Get maximum WSA device count for this platform */
 	ret = of_property_read_u32(pdev->dev.of_node,
 				   "qcom,wsa-max-devs", &wsa_max_devs);
@@ -7918,6 +8061,16 @@ aux_dev_register:
 	card->num_aux_devs = wsa_max_devs + codec_aux_dev_cnt;
 	card->num_configs = wsa_max_devs + codec_aux_dev_cnt;
 
+	//#ifdef OPLUS_ARCH_EXTENDS
+	#ifdef CONFIG_SND_SOC_SIA81XX
+	if (product_name != NULL && !strcmp(product_name, "sia")) {
+		sia81xx_num = soc_sia81xx_get_aux_num(pdev);
+		card->num_aux_devs += sia81xx_num;
+		card->num_configs += sia81xx_num;
+	}
+	#endif /* CONFIG_SND_SOC_SIA81XX */
+	//#endif /* OPLUS_ARCH_EXTENDS */
+
 	/* Alloc array of AUX devs struct */
 	msm_aux_dev = devm_kcalloc(&pdev->dev, card->num_aux_devs,
 				       sizeof(struct snd_soc_aux_dev),
@@ -7980,6 +8133,15 @@ aux_dev_register:
 		msm_codec_conf[wsa_max_devs + i].of_node =
 				aux_cdc_dev_info[i].of_node;
 	}
+
+	//#ifdef OPLUS_ARCH_EXTENDS
+	#ifdef CONFIG_SND_SOC_SIA81XX
+	if (product_name != NULL && !strcmp(product_name, "sia")) {
+		soc_sia81xx_init(pdev, msm_aux_dev + wsa_max_devs + codec_aux_dev_cnt, sia81xx_num,
+			msm_codec_conf + wsa_max_devs + codec_aux_dev_cnt, sia81xx_num);
+	}
+	#endif /* CONFIG_SND_SOC_SIA81XX */
+	//#endif /* OPLUS_ARCH_EXTENDS */
 
 	card->codec_conf = msm_codec_conf;
 	card->aux_dev = msm_aux_dev;
@@ -8057,6 +8219,13 @@ static void kona_ssr_disable(struct device *dev, void *data)
 		return;
 	}
 
+	/* #ifdef OPLUS_ARCH_EXTENDS */
+	#ifdef CONFIG_SND_SOC_AWINIC_AW882XX //add by jerry
+	dev_dbg(dev, "%s: aw882xx unmap function\n", __func__);
+	aw_cal_unmap_memory();
+	#endif /*CONFIG_SND_SOC_AWINIC_AW882XX*/
+	/* #endif OPLUS_ARCH_EXTENDS */
+
 	dev_dbg(dev, "%s: setting snd_card to OFFLINE\n", __func__);
 	snd_soc_card_change_online_state(card, 0);
 
@@ -8112,6 +8281,10 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	int ret = 0;
 	uint index = 0;
 	struct clk *lpass_audio_hw_vote = NULL;
+
+	#ifdef OPLUS_FEATURE_PLATFORM_ATOLL
+	pr_info("%s: *** Enter\n", __func__);
+	#endif /* OPLUS_FEATURE_PLATFORM_ATOLL */
 
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "%s: No platform supplied from device tree\n", __func__);

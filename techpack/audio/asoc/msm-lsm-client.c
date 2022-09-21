@@ -969,6 +969,23 @@ static int msm_lsm_process_params(struct snd_pcm_substream *substream,
 			prtd->lsm_client ? prtd->lsm_client->num_stages : 0);
 		return -EINVAL;
 	}
+#ifdef OPLUS_ARCH_EXTENDS
+#ifndef OPLUS_FEATURE_ONEPLUS_MM_LIMIT_SVA_BARGIN
+	if (p_info != NULL) {
+		switch (p_info->param_type) {
+		case LSM_REG_SND_MODEL:
+		case LSM_DEREG_SND_MODEL:
+		case LSM_CUSTOM_PARAMS:
+			dev_err(rtd->dev,
+				"%s: Add for third party wakeup engine, don't need to set param id %d, return\n",
+				__func__, p_info->param_type);
+			return rc;
+		default:
+			break;
+		}
+	}
+#endif
+#endif
 
 	switch (p_info->param_type) {
 	case LSM_ENDPOINT_DETECT_THRESHOLD:

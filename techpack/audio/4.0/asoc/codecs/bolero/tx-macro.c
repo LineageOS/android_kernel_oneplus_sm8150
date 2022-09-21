@@ -43,10 +43,19 @@
 #define TX_MACRO_ADC_MUX_CFG_OFFSET 0x8
 #define TX_MACRO_ADC_MODE_CFG0_SHIFT 1
 
+#ifndef OPLUS_BUG_STABILITY
 #define TX_MACRO_DMIC_UNMUTE_DELAY_MS	40
+#else /* OPLUS_BUG_STABILITY */
+#define TX_MACRO_DMIC_UNMUTE_DELAY_MS	50
+#endif /* OPLUS_BUG_STABILITY */
+
 #define TX_MACRO_AMIC_UNMUTE_DELAY_MS	100
 #define TX_MACRO_DMIC_HPF_DELAY_MS	300
+#ifndef OPLUS_BUG_STABILITY
 #define TX_MACRO_AMIC_HPF_DELAY_MS	300
+#else /* OPLUS_BUG_STABILITY */
+#define TX_MACRO_AMIC_HPF_DELAY_MS	500
+#endif /* OPLUS_BUG_STABILITY */
 
 static int tx_unmute_delay = TX_MACRO_DMIC_UNMUTE_DELAY_MS;
 module_param(tx_unmute_delay, int, 0664);
@@ -410,6 +419,9 @@ static int tx_macro_event_handler(struct snd_soc_codec *codec, u16 event,
 		else
 			tx_priv->hs_slow_insert_complete = false;
 		break;
+	default:
+		pr_debug("%s Invalid Event\n", __func__);
+		break;
 	}
 	return 0;
 }
@@ -496,6 +508,30 @@ static void tx_macro_tx_hpf_corner_freq_callback(struct work_struct *work)
 		snd_soc_update_bits(codec, hpf_gate_reg,
 						0x03, 0x02);
 		/* Add delay between toggle hpf gate based on sample rate */
+		#ifdef OPLUS_ARCH_EXTENDS
+		switch(tx_priv->amic_sample_rate) {
+		case 0:
+			usleep_range(125, 130);
+			break;
+		case 1:
+			usleep_range(62, 65);
+			break;
+		case 3:
+			usleep_range(31, 32);
+			break;
+		case 4:
+			usleep_range(20, 21);
+			break;
+		case 5:
+			usleep_range(10, 11);
+			break;
+		case 6:
+			usleep_range(5, 6);
+			break;
+		default:
+			usleep_range(125, 130);
+		}
+		#else /* OPLUS_ARCH_EXTENDS */
 		switch(tx_priv->amic_sample_rate) {
 		case 8000:
 			usleep_range(125, 130);
@@ -518,6 +554,7 @@ static void tx_macro_tx_hpf_corner_freq_callback(struct work_struct *work)
 		default:
 			usleep_range(125, 130);
 		}
+		#endif /* OPLUS_ARCH_EXTENDS */
 		snd_soc_update_bits(codec, hpf_gate_reg,
 						0x03, 0x01);
 	} else {
@@ -909,7 +946,11 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x20, 0x20);
+		#ifndef OPLUS_BUG_STABILITY
+		if (!(is_amic_enabled(codec, decimator) < BOLERO_ADC_MAX)) {
+		#else /* OPLUS_BUG_STABILITY */
 		if (!is_amic_enabled(codec, decimator)) {
+		#endif /* OPLUS_BUG_STABILITY */
 			snd_soc_update_bits(codec,
 				hpf_gate_reg, 0x01, 0x00);
 			/*
@@ -947,6 +988,9 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 			if (!is_amic_enabled(codec, decimator))
 				snd_soc_update_bits(codec,
 					hpf_gate_reg, 0x03, 0x00);
+			#ifdef OPLUS_BUG_STABILITY
+			usleep_range(30, 35);
+			#endif /* OPLUS_BUG_STABILITY */
 			snd_soc_update_bits(codec,
 					hpf_gate_reg, 0x03, 0x01);
 			/*
@@ -977,7 +1021,12 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 				snd_soc_update_bits(codec, dec_cfg_reg,
 						    TX_HPF_CUT_OFF_FREQ_MASK,
 						    hpf_cut_off_freq << 5);
+				#ifndef OPLUS_BUG_STABILITY
+				if (is_amic_enabled(codec, decimator) <
+				    BOLERO_ADC_MAX)
+				#else /* OPLUS_BUG_STABILITY */
 				if (is_amic_enabled(codec, decimator))
+				#endif /* OPLUS_BUG_STABILITY */
 					snd_soc_update_bits(codec,
 							hpf_gate_reg,
 							0x03, 0x02);
@@ -989,7 +1038,11 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 				 * Minimum 1 clk cycle delay is required
 				 * as per HW spec
 				 */
+				#ifndef OPLUS_BUG_STABILITY
 				usleep_range(1000, 1010);
+				#else /* OPLUS_BUG_STABILITY */
+				usleep_range(30, 35);
+				#endif /* OPLUS_BUG_STABILITY */
 				snd_soc_update_bits(codec, hpf_gate_reg,
 						0x03, 0x01);
 			}
@@ -2590,6 +2643,7 @@ static int tx_macro_clk_switch(struct snd_soc_codec *codec, int clk_src)
 
 static int tx_macro_core_vote(void *handle, bool enable)
 {
+	int rc = 0;
 	struct tx_macro_priv *tx_priv = (struct tx_macro_priv *) handle;
 
 	if (tx_priv == NULL) {
@@ -2598,14 +2652,22 @@ static int tx_macro_core_vote(void *handle, bool enable)
 	}
 	if (enable) {
 		pm_runtime_get_sync(tx_priv->dev);
+		if (bolero_check_core_votes(tx_priv->dev))
+			rc = 0;
+		else
+			rc = -ENOTSYNC;
+	} else {
 		pm_runtime_put_autosuspend(tx_priv->dev);
 		pm_runtime_mark_last_busy(tx_priv->dev);
 	}
 
+	/*
 	if (bolero_check_core_votes(tx_priv->dev))
 		return 0;
 	else
 		return -EINVAL;
+        */
+	return rc;
 }
 
 static int tx_macro_swrm_clock(void *handle, bool enable)
@@ -3183,13 +3245,17 @@ static int tx_macro_probe(struct platform_device *pdev)
 			"%s: register macro failed\n", __func__);
 		goto err_reg_macro;
 	}
+	/*
 	if (is_used_tx_swr_gpio)
 		schedule_work(&tx_priv->tx_macro_add_child_devices_work);
+	*/
 	pm_runtime_set_autosuspend_delay(&pdev->dev, AUTO_SUSPEND_DELAY);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 	pm_suspend_ignore_children(&pdev->dev, true);
 	pm_runtime_enable(&pdev->dev);
+	if (is_used_tx_swr_gpio)
+		schedule_work(&tx_priv->tx_macro_add_child_devices_work);
 
 	return 0;
 err_reg_macro:

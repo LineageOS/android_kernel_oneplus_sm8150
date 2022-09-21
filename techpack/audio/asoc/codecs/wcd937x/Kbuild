@@ -84,6 +84,12 @@ CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \
 		-Werror\
 		-D__linux__
 
+#ifdef OPLUS_ARCH_EXTENDS
+ifeq ($(CONFIG_ARCH_SM6150), y)
+CDEFINES += -DDBMDX_SOUND_TRIGGER_SUPPORT
+endif
+#endif /* OPLUS_ARCH_EXTENDS */
+
 KBUILD_CPPFLAGS += $(CDEFINES)
 
 # Currently, for versions of gcc which support it, the kernel Makefile

@@ -10,6 +10,8 @@
 #include <linux/mutex.h>
 #include <dsp/audio_cal_utils.h>
 
+struct mutex cal_lock;
+
 static int unmap_memory(struct cal_type_data *cal_type,
 			struct cal_block_data *cal_block);
 
@@ -57,6 +59,9 @@ size_t get_cal_info_size(int32_t cal_type)
 	case ADM_AUDPROC_CAL_TYPE:
 	case ADM_LSM_AUDPROC_CAL_TYPE:
 	case ADM_LSM_AUDPROC_PERSISTENT_CAL_TYPE:
+#ifdef OPLUS_ARCH_EXTENDS
+	case ADM_AUDPROC_PERSISTENT_CAL_TYPE:
+#endif /* OPLUS_ARCH_EXTENDS */
 		size = sizeof(struct audio_cal_info_audproc);
 		break;
 	case ADM_AUDVOL_CAL_TYPE:
@@ -211,6 +216,9 @@ size_t get_user_cal_type_size(int32_t cal_type)
 	case ADM_AUDPROC_CAL_TYPE:
 	case ADM_LSM_AUDPROC_CAL_TYPE:
 	case ADM_LSM_AUDPROC_PERSISTENT_CAL_TYPE:
+#ifdef OPLUS_ARCH_EXTENDS
+	case ADM_AUDPROC_PERSISTENT_CAL_TYPE:
+#endif /* OPLUS_ARCH_EXTENDS */
 		size = sizeof(struct audio_cal_type_audproc);
 		break;
 	case ADM_AUDVOL_CAL_TYPE:
@@ -938,7 +946,9 @@ int cal_utils_dealloc_cal(size_t data_size, void *data,
 	if (ret < 0)
 		goto err;
 
+	mutex_lock(&cal_lock);
 	delete_cal_block(cal_block);
+	mutex_unlock(&cal_lock);
 err:
 	mutex_unlock(&cal_type->lock);
 done:
@@ -1053,6 +1063,12 @@ void cal_utils_mark_cal_used(struct cal_block_data *cal_block)
 }
 EXPORT_SYMBOL(cal_utils_mark_cal_used);
 
+int __init cal_utils_init(void)
+{
+	mutex_init(&cal_lock);
+	return 0;
+}
+
 /**
  * cal_utils_is_cal_stale
  *
@@ -1062,9 +1078,19 @@ EXPORT_SYMBOL(cal_utils_mark_cal_used);
  */
 bool cal_utils_is_cal_stale(struct cal_block_data *cal_block)
 {
-	if ((cal_block) && (cal_block->cal_stale))
-		return true;
+	bool ret = false;
 
-	return false;
+	mutex_lock(&cal_lock);
+	if (!cal_block) {
+		pr_err("%s: cal_block is Null", __func__);
+		goto unlock;
+	}
+	if (cal_block->cal_stale)
+	    ret = true;
+
+unlock:
+	mutex_unlock(&cal_lock);
+	return ret;
+
 }
 EXPORT_SYMBOL(cal_utils_is_cal_stale);

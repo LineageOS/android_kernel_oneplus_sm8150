@@ -337,6 +337,13 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 				"Failed to read interrupt status: %d\n", ret);
 		goto err_disable_irq;
 	}
+#ifdef OPLUS_FEATURE_MM_ULTRASOUND
+	/* added by yewenliang@MM.Audio for debug irq status*/
+	dev_info(wcd9xxx_res->dev,
+			"%s: reg 0x%x: 0x%02x 0x%02x 0x%02x 0x%02x\n",
+			__func__, wcd9xxx_res->intr_reg[WCD9XXX_INTR_STATUS_BASE],
+			status[0], status[1], status[2], status[3]);
+#endif
 	/*
 	 * If status is 0 return without clearing.
 	 * status contains: HW status - masked interrupts

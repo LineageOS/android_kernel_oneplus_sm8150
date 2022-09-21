@@ -1,7 +1,7 @@
 # Android makefile for audio kernel modules
 MY_LOCAL_PATH := $(call my-dir)
 
-ifeq ($(call is-board-platform-in-list,msm8953 sdm845 sdm670 sdm660 qcs605 msmnile $(MSMSTEPPE) $(TRINKET)),true)
+ifeq ($(call is-board-platform-in-list,msm8953 sdm845 sdm670 sdm660 qcs605 msmnile  $(MSMSTEPPE) $(TRINKET)),true)
 UAPI_OUT := $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/include
 
 $(shell mkdir -p $(UAPI_OUT)/linux;)
@@ -24,7 +24,7 @@ include $(MY_LOCAL_PATH)/asoc/codecs/Android.mk
 include $(MY_LOCAL_PATH)/asoc/codecs/wcd934x/Android.mk
 endif
 
-ifeq ($(call is-board-platform-in-list, atoll),true)
+ifeq ($(call is-board-platform-in-list, atoll ),true)
 UAPI_OUT := $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/4.0/include
 
 $(shell mkdir -p $(UAPI_OUT)/linux;)
@@ -57,7 +57,7 @@ $(shell rm -rf $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codec
 include $(MY_LOCAL_PATH)/asoc/codecs/wcd937x/Android.mk
 endif
 
-ifeq ($(call is-board-platform-in-list, atoll),true)
+ifeq ($(call is-board-platform-in-list, atoll ),true)
 $(shell rm -rf $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/4.0/asoc/codecs/bolero/Module.symvers)
 include $(MY_LOCAL_PATH)/4.0/asoc/codecs/bolero/Android.mk
 $(shell rm -rf $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/4.0/asoc/codecs/wcd937x/Module.symvers)
@@ -77,3 +77,50 @@ ifeq ($(call is-board-platform-in-list,msmnile),true)
 $(shell rm -rf $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd9360/Module.symvers)
 include $(MY_LOCAL_PATH)/asoc/codecs/wcd9360/Android.mk
 endif
+
+#ifdef OPLUS_ARCH_EXTENDS
+ifeq ($(call is-board-platform-in-list, atoll),true)
+$(shell rm -rf $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/4.0/asoc/codecs/aw882xx/Module.symvers)
+include $(MY_LOCAL_PATH)/4.0/asoc/codecs/aw882xx/Android.mk
+endif
+#endif /* OPLUS_ARCH_EXTENDS */
+
+#ifdef OPLUS_ARCH_EXTENDS
+ifeq ($(call is-board-platform-in-list, atoll $(MSMSTEPPE)),true)
+$(shell rm -rf $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/4.0/asoc/codecs/tfa98xx-v6/Module.symvers)
+include $(MY_LOCAL_PATH)/4.0/asoc/codecs/tfa98xx-v6/Android.mk
+endif
+#endif /* OPLUS_ARCH_EXTENDS */
+
+#ifdef OPLUS_ARCH_EXTENDS
+ifeq ($(call is-board-platform-in-list, atoll),true)
+$(shell rm -rf $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/4.0/asoc/codecs/sia81xx/Module.symvers)
+include $(MY_LOCAL_PATH)/4.0/asoc/codecs/sia81xx/Android.mk
+endif
+#endif /* OPLUS_ARCH_EXTENDS */
+
+#ifdef OPLUS_ARCH_EXTENDS
+ifeq ($(call is-board-platform-in-list,msmnile $(MSMSTEPPE)),true)
+$(shell rm -rf $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codecs/max989xx/Module.symvers)
+include $(MY_LOCAL_PATH)/asoc/codecs/max989xx/Android.mk
+endif
+#endif /* OPLUS_ARCH_EXTENDS */
+
+#ifdef OPLUS_ARCH_EXTENDS
+ifeq ($(call is-board-platform-in-list, $(MSMSTEPPE)),true)
+include $(MY_LOCAL_PATH)/asoc/codecs/ak4376/Android.mk
+endif
+#endif /* OPLUS_ARCH_EXTENDS */
+
+#ifdef OPLUS_ARCH_EXTENDS
+ifeq ($(call is-board-platform-in-list, $(MSMSTEPPE)),true)
+include $(MY_LOCAL_PATH)/asoc/codecs/dbmdx/Android.mk
+endif
+#endif /* OPLUS_ARCH_EXTENDS */
+
+#ifdef OPLUS_ARCH_EXTENDS
+ifeq ($(call is-board-platform-in-list,msmnile),true)
+$(shell rm -rf $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codecs/tfa9894/Module.symvers)
+include $(MY_LOCAL_PATH)/asoc/codecs/tfa9894/Android.mk
+endif
+#endif /* OPLUS_ARCH_EXTENDS */

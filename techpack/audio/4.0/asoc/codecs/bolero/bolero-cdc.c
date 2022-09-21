@@ -832,11 +832,19 @@ static int bolero_ssr_enable(struct device *dev, void *data)
 				priv->codec,
 				BOLERO_MACRO_EVT_CLK_RESET, 0x0);
 	}
+	trace_printk("%s: clk count reset\n", __func__);
 
 	if (priv->rsc_clk_cb)
 		priv->rsc_clk_cb(priv->clk_dev, BOLERO_MACRO_EVT_SSR_GFMUX_UP);
 
-	trace_printk("%s: clk count reset\n", __func__);
+	for (macro_idx = START_MACRO; macro_idx < MAX_MACRO; macro_idx++) {
+		if (!priv->macro_params[macro_idx].event_handler)
+			continue;
+		priv->macro_params[macro_idx].event_handler(
+			priv->codec,
+			BOLERO_MACRO_EVT_PRE_SSR_UP, 0x0);
+	}
+
 	regcache_cache_only(priv->regmap, false);
 	mutex_lock(&priv->clk_lock);
 	priv->dev_up = true;
@@ -1326,7 +1334,7 @@ static int bolero_probe(struct platform_device *pdev)
 	mutex_init(&priv->vote_lock);
 	INIT_WORK(&priv->bolero_add_child_devices_work,
 		  bolero_add_child_devices);
-	schedule_work(&priv->bolero_add_child_devices_work);
+	//schedule_work(&priv->bolero_add_child_devices_work);
 
 	/* Register LPASS core hw vote */
 	lpass_core_hw_vote = devm_clk_get(&pdev->dev, "lpass_core_hw_vote");
@@ -1348,6 +1356,7 @@ static int bolero_probe(struct platform_device *pdev)
 		lpass_audio_hw_vote = NULL;
 		ret = 0;
 	}
+	schedule_work(&priv->bolero_add_child_devices_work);
 	priv->lpass_audio_hw_vote = lpass_audio_hw_vote;
 
 	return 0;

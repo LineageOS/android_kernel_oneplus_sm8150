@@ -22,6 +22,9 @@
 #include <linux/of_device.h>
 #include <linux/pm_qos.h>
 #include <linux/soc/qcom/fsa4480-i2c.h>
+#if defined(OPLUS_ARCH_EXTENDS) && !defined(OPLUS_FEATURE_OP_SPECIFIC_AUDIO_KERNEL)
+#include <linux/soc/qcom/max20328.h>
+#endif
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -39,6 +42,9 @@
 #include "codecs/wcd9360/wcd9360.h"
 #include "codecs/wsa881x.h"
 #include "codecs/wcd-mbhc-v2.h"
+#ifdef OPLUS_FEATURE_OP_SPECIFIC_AUDIO_KERNEL
+#include <linux/regulator/consumer.h>
+#endif
 
 #define DRV_NAME "sm8150-asoc-snd"
 
@@ -74,7 +80,9 @@
 
 #define TDM_MAX_SLOTS		8
 #define TDM_SLOT_WIDTH_BITS	32
-
+#if defined(OPLUS_ARCH_EXTENDS) && !defined(OPLUS_FEATURE_OP_SPECIFIC_AUDIO_KERNEL)
+extern bool max20328_state;
+#endif
 enum {
 	SLIM_RX_0 = 0,
 	SLIM_RX_1,
@@ -146,6 +154,13 @@ enum {
 	EXT_DISP_RX_IDX_MAX,
 };
 
+#ifdef OPLUS_FEATURE_AEC
+enum {
+	AFE_LOOPBACK_TX_IDX = 0,
+	AFE_LOOPBACK_TX_IDX_MAX,
+};
+#endif
+
 struct msm_wsa881x_dev_info {
 	struct device_node *of_node;
 	u32 index;
@@ -174,6 +189,9 @@ struct msm_asoc_mach_data {
 	struct device_node *hph_en1_gpio_p; /* used by pinctrl API */
 	struct device_node *hph_en0_gpio_p; /* used by pinctrl API */
 	struct device_node *fsa_handle;
+	#if defined(OPLUS_ARCH_EXTENDS) && !defined(OPLUS_FEATURE_OP_SPECIFIC_AUDIO_KERNEL)
+	struct device_node *max_handle;
+	#endif
 	struct device_node *mi2s_gpio_p[MI2S_MAX]; /* used by pinctrl API */
 	struct snd_soc_codec *codec;
 	struct work_struct adsp_power_up_work;
@@ -322,6 +340,12 @@ static struct dev_config tdm_tx_cfg[TDM_INTERFACE_MAX][TDM_PORT_MAX] = {
 	}
 
 };
+
+#ifdef OPLUS_FEATURE_AEC
+static struct dev_config afe_loopback_tx_cfg[] = {
+	[AFE_LOOPBACK_TX_IDX] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
+};
+#endif
 
 /* Default configuration of slimbus channels */
 static struct dev_config slim_rx_cfg[] = {
@@ -487,6 +511,11 @@ static struct dev_config aux_pcm_tx_cfg[] = {
 	[QUIN_AUX_PCM] = {SAMPLING_RATE_8KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 };
 static int msm_vi_feed_tx_ch = 2;
+
+#ifdef OPLUS_FEATURE_AEC
+static const char *const afe_loopback_tx_ch_text[] = {"One", "Two"};
+#endif
+
 static const char *const slim_rx_ch_text[] = {"One", "Two"};
 static const char *const slim_tx_ch_text[] = {"One", "Two", "Three", "Four",
 						"Five", "Six", "Seven",
@@ -538,10 +567,17 @@ static const char *const mi2s_ch_text[] = {"One", "Two", "Three", "Four",
 static const char *const hifi_text[] = {"Off", "On"};
 static const char *const qos_text[] = {"Disable", "Enable"};
 
+#ifdef OPLUS_FEATURE_AEC
+static SOC_ENUM_SINGLE_EXT_DECL(afe_loopback_tx_chs, afe_loopback_tx_ch_text);
+#endif
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_2_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_chs, slim_tx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_1_tx_chs, slim_tx_ch_text);
+#ifdef OPLUS_FEATURE_MM_ULTRASOUND
+static SOC_ENUM_SINGLE_EXT_DECL(slim_2_tx_chs, slim_tx_ch_text);
+//#end add
+#endif
 static SOC_ENUM_SINGLE_EXT_DECL(slim_5_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_6_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_chs, usb_ch_text);
@@ -553,12 +589,20 @@ static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_5_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_6_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_format, bit_format_text);
+#ifdef OPLUS_FEATURE_MM_ULTRASOUND
+static SOC_ENUM_SINGLE_EXT_DECL(slim_2_tx_format, bit_format_text);
+//#end add
+#endif
 static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(ext_disp_rx_format, ext_disp_bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_2_rx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_sample_rate, slim_sample_rate_text);
+#ifdef OPLUS_FEATURE_MM_ULTRASOUND
+static SOC_ENUM_SINGLE_EXT_DECL(slim_2_tx_sample_rate, slim_sample_rate_text);
+//#end add
+#endif
 static SOC_ENUM_SINGLE_EXT_DECL(slim_5_rx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_6_rx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(bt_sample_rate, bt_sample_rate_text);
@@ -635,6 +679,16 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
+	#ifdef OPLUS_FEATURE_FSA4480
+	.key_code[0] = KEY_MEDIA,
+	.key_code[1] = KEY_VOLUMEUP,
+	.key_code[2] = KEY_VOLUMEDOWN,
+	.key_code[3] = 0,
+	.key_code[4] = 0,
+	.key_code[5] = 0,
+	.key_code[6] = 0,
+	.key_code[7] = 0,
+	#else
 	.key_code[0] = KEY_MEDIA,
 	.key_code[1] = KEY_VOICECOMMAND,
 	.key_code[2] = KEY_VOLUMEUP,
@@ -643,8 +697,13 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.key_code[5] = 0,
 	.key_code[6] = 0,
 	.key_code[7] = 0,
+	#endif
 	.linein_th = 5000,
+    #if !defined(OPLUS_ARCH_EXTENDS) || defined(OPLUS_FEATURE_OP_SPECIFIC_AUDIO_KERNEL)
 	.moisture_en = true,
+	#else
+	.moisture_en = false,
+	#endif
 	.mbhc_micbias = MIC_BIAS_2,
 	.anc_micbias = MIC_BIAS_2,
 	.enable_anc_mic_detect = false,
@@ -866,6 +925,12 @@ static int slim_get_port_idx(struct snd_kcontrol *kcontrol)
 	} else if (strnstr(kcontrol->id.name,
 					   "SLIM_1_TX", sizeof("SLIM_1_TX"))) {
 		port_id = SLIM_TX_1;
+#ifdef OPLUS_FEATURE_MM_ULTRASOUND
+	}else if (strnstr(kcontrol->id.name,
+                                           "SLIM_2_TX", sizeof("SLIM_2_TX"))){
+                port_id = SLIM_TX_2;
+//#end add
+#endif
 	} else {
 		pr_err("%s: unsupported channel: %s",
 			__func__, kcontrol->id.name);
@@ -1024,6 +1089,28 @@ static int slim_tx_bit_format_put(struct snd_kcontrol *kcontrol,
 
 	return 0;
 }
+
+#ifdef OPLUS_FEATURE_AEC
+static int afe_loopback_tx_ch_get(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_slim_[0]_rx_ch  = %d\n", __func__,
+		 afe_loopback_tx_cfg[0].channels);
+	ucontrol->value.enumerated.item[0] = afe_loopback_tx_cfg[0].channels - 1;
+
+	return 0;
+}
+
+static int afe_loopback_tx_ch_put(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	afe_loopback_tx_cfg[0].channels = ucontrol->value.enumerated.item[0] + 1;
+	pr_debug("%s: msm_slim_[0]_rx_ch  = %d\n", __func__,
+		 afe_loopback_tx_cfg[0].channels);
+
+	return 1;
+}
+#endif
 
 static int slim_rx_ch_get(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
@@ -2951,6 +3038,10 @@ static int msm_hifi_put(struct snd_kcontrol *kcontrol,
 }
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
+#ifdef OPLUS_FEATURE_AEC
+	SOC_ENUM_EXT("AFE_LOOPBACK_TX Channels", afe_loopback_tx_chs,
+			afe_loopback_tx_ch_get, afe_loopback_tx_ch_put),
+#endif
 	SOC_ENUM_EXT("SLIM_0_RX Channels", slim_0_rx_chs,
 			slim_rx_ch_get, slim_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_2_RX Channels", slim_2_rx_chs,
@@ -2959,6 +3050,11 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			slim_tx_ch_get, slim_tx_ch_put),
 	SOC_ENUM_EXT("SLIM_1_TX Channels", slim_1_tx_chs,
 			slim_tx_ch_get, slim_tx_ch_put),
+#ifdef OPLUS_FEATURE_MM_ULTRASOUND
+    SOC_ENUM_EXT("SLIM_2_TX Channels", slim_2_tx_chs,
+             slim_tx_ch_get, slim_tx_ch_put),
+//#end add
+#endif
 	SOC_ENUM_EXT("SLIM_5_RX Channels", slim_5_rx_chs,
 			slim_rx_ch_get, slim_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_6_RX Channels", slim_6_rx_chs,
@@ -2981,6 +3077,11 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			slim_rx_bit_format_get, slim_rx_bit_format_put),
 	SOC_ENUM_EXT("SLIM_0_TX Format", slim_0_tx_format,
 			slim_tx_bit_format_get, slim_tx_bit_format_put),
+#ifdef OPLUS_FEATURE_MM_ULTRASOUND
+    SOC_ENUM_EXT("SLIM_2_TX Format", slim_2_tx_format,
+            slim_tx_bit_format_get, slim_tx_bit_format_put),
+//#end add
+#endif
 	SOC_ENUM_EXT("USB_AUDIO_RX Format", usb_rx_format,
 			usb_audio_rx_format_get, usb_audio_rx_format_put),
 	SOC_ENUM_EXT("USB_AUDIO_TX Format", usb_tx_format,
@@ -2993,6 +3094,11 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			slim_rx_sample_rate_get, slim_rx_sample_rate_put),
 	SOC_ENUM_EXT("SLIM_0_TX SampleRate", slim_0_tx_sample_rate,
 			slim_tx_sample_rate_get, slim_tx_sample_rate_put),
+#ifdef OPLUS_FEATURE_MM_ULTRASOUND
+    SOC_ENUM_EXT("SLIM_2_TX SampleRate", slim_2_tx_sample_rate,
+            slim_tx_sample_rate_get, slim_tx_sample_rate_put),
+//#end add
+#endif
 	SOC_ENUM_EXT("SLIM_5_RX SampleRate", slim_5_rx_sample_rate,
 			slim_rx_sample_rate_get, slim_rx_sample_rate_put),
 	SOC_ENUM_EXT("SLIM_6_RX SampleRate", slim_6_rx_sample_rate,
@@ -3392,6 +3498,11 @@ static const struct snd_soc_dapm_widget msm_dapm_widgets_tavil[] = {
 	SND_SOC_DAPM_MIC("Digital Mic5", NULL),
 };
 
+#ifdef OPLUS_ARCH_EXTENDS
+extern void extend_codec_i2s_be_dailinks(struct snd_soc_dai_link *dailink, size_t size);
+static void (*extend_i2s_be_dailinks_func)(struct snd_soc_dai_link *dailink, size_t size);
+#endif /* OPLUS_ARCH_EXTENDS */
+
 static inline int param_is_mask(int p)
 {
 	return (p >= SNDRV_PCM_HW_PARAM_FIRST_MASK) &&
@@ -3491,6 +3602,14 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 
 	switch (dai_link->id) {
+#ifdef OPLUS_FEATURE_AEC
+	case MSM_BACKEND_DAI_AFE_LOOPBACK_TX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				afe_loopback_tx_cfg[idx].bit_format);
+		rate->min = rate->max = afe_loopback_tx_cfg[idx].sample_rate;
+		channels->min = channels->max = afe_loopback_tx_cfg[idx].channels;
+		break;
+#endif
 	case MSM_BACKEND_DAI_SLIMBUS_0_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_1_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_2_RX:
@@ -3559,6 +3678,10 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		break;
 
 	case MSM_BACKEND_DAI_SLIMBUS_7_TX:
+		#ifdef OPLUS_ARCH_EXTENDS
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			slim_tx_cfg[SLIM_TX_7].bit_format);
+		#endif/*OPLUS_ARCH_EXTENDS*/
 		rate->min = rate->max = slim_tx_cfg[SLIM_TX_7].sample_rate;
 		channels->min = channels->max =
 			slim_tx_cfg[SLIM_TX_7].channels;
@@ -3869,11 +3992,29 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
 	struct snd_soc_card *card = codec->component.card;
 	struct msm_asoc_mach_data *pdata =
 				snd_soc_card_get_drvdata(card);
-
+#if !defined(OPLUS_ARCH_EXTENDS) || defined(OPLUS_FEATURE_OP_SPECIFIC_AUDIO_KERNEL)
 	if (!pdata->fsa_handle)
-		return false;
-
+			return false;
 	return fsa4480_switch_event(pdata->fsa_handle, FSA_MIC_GND_SWAP);
+#else
+	pr_err("%s wcd_mbhc_cfg.switch_type = %d\n", __func__,wcd_mbhc_cfg.switch_type);
+	if(MAX20328 == wcd_mbhc_cfg.switch_type){
+		if (!pdata->max_handle)
+			return false;
+		
+		if(!max20328_swap_mic_gnd())
+			return true;
+		else
+			return false;
+
+	}else{
+		if (!pdata->fsa_handle)
+			return false;
+		
+
+		return fsa4480_switch_event(pdata->fsa_handle, FSA_MIC_GND_SWAP);
+	}
+#endif
 }
 
 static bool msm_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
@@ -4296,7 +4437,11 @@ static void *def_wcd_mbhc_cal(void)
 		return NULL;
 
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(wcd_mbhc_cal)->X) = (Y))
+	#ifndef OPLUS_ARCH_EXTENDS
 	S(v_hs_max, 1600);
+	#else
+	S(v_hs_max, 1700);
+	#endif
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(wcd_mbhc_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -4306,14 +4451,34 @@ static void *def_wcd_mbhc_cal(void)
 	btn_high = ((void *)&btn_cfg->_v_btn_low) +
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
-	btn_high[0] = 75;
-	btn_high[1] = 150;
+#ifdef OPLUS_FEATURE_FSA4480
+	btn_high[0] = 112;
+	btn_high[1] = 225;
+	btn_high[2] = 437;
+	btn_high[3] = 440;
+	btn_high[4] = 440;
+	btn_high[5] = 440;
+	btn_high[6] = 440;
+	btn_high[7] = 440;
+#elif defined(OPLUS_ARCH_EXTENDS)
+	btn_high[0] = 112;
+	btn_high[1] = 113;
 	btn_high[2] = 237;
 	btn_high[3] = 500;
 	btn_high[4] = 500;
 	btn_high[5] = 500;
 	btn_high[6] = 500;
 	btn_high[7] = 500;
+#else
+        btn_high[0] = 75;
+        btn_high[1] = 150;
+        btn_high[2] = 237;
+        btn_high[3] = 500;
+        btn_high[4] = 500;
+        btn_high[5] = 500;
+        btn_high[6] = 500;
+        btn_high[7] = 500;
+#endif /* OPLUS_ARCH_EXTENDS */
 
 	return wcd_mbhc_cal;
 }
@@ -5743,6 +5908,26 @@ static struct snd_soc_dai_link msm_pahu_fe_dai_links[] = {
 	},
 };
 
+#ifdef OPLUS_ARCH_EXTENDS
+static struct snd_soc_dai_link tfa98xx_fe_dai_links[] = {
+	{/* Quaternary MI2S */
+		.name = "Quaternary MI2S TX_Hostless",
+		.stream_name = "Quaternary MI2S_TX Hostless Capture",
+		.cpu_dai_name = "QUAT_MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+				SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+};
+#endif
+
 static struct snd_soc_dai_link msm_tavil_fe_dai_links[] = {
 	{
 		.name = LPASS_BE_SLIMBUS_4_TX,
@@ -6954,6 +7139,49 @@ static struct snd_soc_dai_link msm_auxpcm_be_dai_links[] = {
 	},
 };
 
+#ifdef OPLUS_ARCH_EXTENDS
+#ifdef CONFIG_SND_SOC_MAX98937
+static struct snd_soc_dai_link maxim_fe_dai[] = {
+	{/* hw:x,40 */
+		.name = "Quaternary MI2S_TX Hostless",
+		.stream_name = "Quaternary MI2S_TX Hostless",
+		.cpu_dai_name = "QUAT_MI2S_TX_HOSTLESS",
+		.platform_name	= "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		 /* this dailink has playback support */
+		.ignore_pmdown_time = 1,
+		/* This dainlink has MI2S support */
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+};
+#endif
+#endif /* OPLUS_ARCH_EXTENDS */
+
+#ifdef OPLUS_FEATURE_AEC
+static struct snd_soc_dai_link msm_afe_rxtx_lb_be_dai_link[] = {
+	{
+		.name = LPASS_BE_AFE_LOOPBACK_TX,
+		.stream_name = "AFE Loopback Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.24577",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.id = MSM_BACKEND_DAI_AFE_LOOPBACK_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+#endif
+
 static struct snd_soc_dai_link msm_pahu_snd_card_dai_links[
 			 ARRAY_SIZE(msm_common_dai_links) +
 			 ARRAY_SIZE(msm_pahu_fe_dai_links) +
@@ -6963,8 +7191,14 @@ static struct snd_soc_dai_link msm_pahu_snd_card_dai_links[
 			 ARRAY_SIZE(msm_wcn_be_dai_links) +
 			 ARRAY_SIZE(ext_disp_be_dai_link) +
 			 ARRAY_SIZE(msm_mi2s_be_dai_links) +
+			#ifndef OPLUS_FEATURE_AEC
 			 ARRAY_SIZE(msm_auxpcm_be_dai_links)];
+			#else/*OPLUS_FEATURE_AEC*/
+			 ARRAY_SIZE(msm_auxpcm_be_dai_links) +
+			 ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link)];
+			#endif/*OPLUS_FEATURE_AEC*/
 
+#ifndef OPLUS_ARCH_EXTENDS
 static struct snd_soc_dai_link msm_tavil_dai_links[
 			 ARRAY_SIZE(msm_common_dai_links) +
 			 ARRAY_SIZE(msm_tavil_fe_dai_links) +
@@ -6975,6 +7209,42 @@ static struct snd_soc_dai_link msm_tavil_dai_links[
 			 ARRAY_SIZE(ext_disp_be_dai_link) +
 			 ARRAY_SIZE(msm_mi2s_be_dai_links) +
 			 ARRAY_SIZE(msm_auxpcm_be_dai_links)];
+#else /* OPLUS_ARCH_EXTENDS */
+#ifdef CONFIG_SND_SOC_MAX98937
+static struct snd_soc_dai_link msm_tavil_dai_links[
+			 ARRAY_SIZE(msm_common_dai_links) +
+			 ARRAY_SIZE(msm_tavil_fe_dai_links) +
+			 ARRAY_SIZE(msm_common_misc_fe_dai_links) +
+			 ARRAY_SIZE(msm_common_be_dai_links) +
+			 ARRAY_SIZE(msm_tavil_be_dai_links) +
+			 ARRAY_SIZE(msm_wcn_be_dai_links) +
+			 ARRAY_SIZE(ext_disp_be_dai_link) +
+			 ARRAY_SIZE(msm_mi2s_be_dai_links) +
+			 ARRAY_SIZE(msm_auxpcm_be_dai_links) +
+			#ifndef OPLUS_FEATURE_AEC
+			 ARRAY_SIZE(maxim_fe_dai)];
+			#else /*OPLUS_FEATURE_AEC*/
+			 ARRAY_SIZE(maxim_fe_dai) +
+			 ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link)];
+			#endif/*OPLUS_FEATURE_AEC*/
+#else/*CONFIG_SND_SOC_MAX98937*/
+static struct snd_soc_dai_link msm_tavil_dai_links[
+			 ARRAY_SIZE(msm_common_dai_links) +
+			 ARRAY_SIZE(msm_tavil_fe_dai_links) +
+			 ARRAY_SIZE(msm_common_misc_fe_dai_links) +
+			 ARRAY_SIZE(msm_common_be_dai_links) +
+			 ARRAY_SIZE(msm_tavil_be_dai_links) +
+			 ARRAY_SIZE(msm_wcn_be_dai_links) +
+			 ARRAY_SIZE(ext_disp_be_dai_link) +
+			 ARRAY_SIZE(msm_mi2s_be_dai_links) +
+			 #ifndef OPLUS_FEATURE_AEC
+			 ARRAY_SIZE(msm_auxpcm_be_dai_links)];
+			 #else /*OPLUS_FEATURE_AEC*/
+			 ARRAY_SIZE(msm_auxpcm_be_dai_links) +
+			 ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link)];
+			 #endif /*OPLUS_FEATURE_AEC*/
+#endif /*CONFIG_SND_SOC_MAX98937*/
+#endif /* OPLUS_ARCH_EXTENDS */
 
 static int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
 {
@@ -7253,6 +7523,17 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	const struct of_device_id *match;
 	int ret = 0;
 	u32 val = 0;
+	#if defined(OPLUS_ARCH_EXTENDS)
+	int i;
+	const char *product_name = NULL;
+	const char *oplus_speaker_type = "oplus,speaker-pa";
+	const char *stereo_mode_str = "oplus,speaker-stereo-mode";
+	u32 config_stereo_mode = 0;
+	struct snd_soc_dai_link *temp_link;
+	#endif /* OPLUS_ARCH_EXTENDS */
+	#ifdef OPLUS_FEATURE_AEC
+	uint32_t afe_loopback_intf = 0;
+	#endif
 
 	match = of_match_node(sm8150_asoc_machine_of_match, dev->of_node);
 	if (!match) {
@@ -7260,6 +7541,11 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			__func__);
 		return NULL;
 	}
+
+	#if defined(OPLUS_ARCH_EXTENDS)
+	of_property_read_u32(dev->of_node, stereo_mode_str, &config_stereo_mode);
+	pr_info("%s config_stereo_mode %d\n", __func__, config_stereo_mode);
+	#endif /* OPLUS_ARCH_EXTENDS */
 
 	if (!strcmp(match->data, "pahu_codec")) {
 		card = &snd_soc_card_pahu_msm;
@@ -7374,6 +7660,28 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		ret = of_property_read_u32(dev->of_node,
 					   "qcom,mi2s-audio-intf", &val);
 		if (!ret && val) {
+			#ifdef OPLUS_ARCH_EXTENDS
+			extend_i2s_be_dailinks_func = symbol_request(extend_codec_i2s_be_dailinks);
+			if(extend_i2s_be_dailinks_func){
+				extend_i2s_be_dailinks_func(msm_mi2s_be_dai_links, ARRAY_SIZE(msm_mi2s_be_dai_links));
+			}
+            if (!of_property_read_string(dev->of_node, oplus_speaker_type,
+                    &product_name)) {
+                pr_info("%s: custom speaker product %s\n", __func__, product_name);
+                for (i = 0; i < ARRAY_SIZE(msm_tavil_fe_dai_links); i++) {
+                    temp_link = &msm_tavil_fe_dai_links[i];
+                    if (temp_link->id == MSM_BACKEND_DAI_SLIMBUS_4_TX) {
+                        if (!strcmp(product_name, "nxp")
+                            && soc_find_component(NULL, tfa98xx_fe_dai_links[0].codec_name)) {
+                            pr_info("%s: use nxp dailink replace\n", __func__);
+                            memcpy(temp_link, &tfa98xx_fe_dai_links[0],
+                                sizeof(tfa98xx_fe_dai_links[0]));
+                            break;
+                        }
+                    }
+                }
+            }
+			#endif /* OPLUS_ARCH_EXTENDS */
 			memcpy(msm_tavil_dai_links + total_links,
 			       msm_mi2s_be_dai_links,
 			       sizeof(msm_mi2s_be_dai_links));
@@ -7388,6 +7696,35 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			sizeof(msm_auxpcm_be_dai_links));
 			total_links += ARRAY_SIZE(msm_auxpcm_be_dai_links);
 		}
+		#ifdef OPLUS_ARCH_EXTENDS
+		if (!of_property_read_string(dev->of_node, oplus_speaker_type, &product_name)) {
+			#ifdef CONFIG_SND_SOC_MAX98937
+			if (!strcmp(product_name, "maxim")) {
+				memcpy(msm_tavil_dai_links + total_links,
+					maxim_fe_dai,
+					sizeof(maxim_fe_dai));
+				total_links += ARRAY_SIZE(maxim_fe_dai);
+			}
+			#endif
+		}
+		#endif /* OPLUS_ARCH_EXTENDS */
+
+#ifdef OPLUS_FEATURE_AEC
+		ret = of_property_read_u32(dev->of_node, "qcom,afe-rxtx-lb",
+					&afe_loopback_intf);
+		if (ret) {
+			dev_dbg(dev, "%s: No DT match AFE loopback audio interface\n",
+				__func__);
+		} else {
+			if (afe_loopback_intf) {
+				memcpy(msm_tavil_dai_links + total_links,
+				msm_afe_rxtx_lb_be_dai_link,
+				sizeof(msm_afe_rxtx_lb_be_dai_link));
+				total_links +=
+				ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link);
+			}
+		}
+#endif
 		dailink = msm_tavil_dai_links;
 	} else if (!strcmp(match->data, "stub_codec")) {
 		card = &snd_soc_card_stub_msm;
@@ -7816,11 +8153,31 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	if (wcd_mbhc_cfg.enable_usbc_analog)
 		wcd_mbhc_cfg.swap_gnd_mic = msm_usbc_swap_gnd_mic;
 
+	#if !defined(OPLUS_ARCH_EXTENDS) || defined(OPLUS_FEATURE_OP_SPECIFIC_AUDIO_KERNEL)
 	pdata->fsa_handle = of_parse_phandle(pdev->dev.of_node,
 					     "fsa4480-i2c-handle", 0);
 	if (!pdata->fsa_handle)
 		dev_dbg(&pdev->dev, "property %s not detected in node %s\n",
 			"fsa4480-i2c-handle", pdev->dev.of_node->full_name);
+	#else
+	pdata->fsa_handle = of_parse_phandle(pdev->dev.of_node,
+					     "fsa4480-i2c-handle", 0);
+	if (!pdata->fsa_handle)
+		dev_dbg(&pdev->dev, "property %s not detected in node %s\n",
+			"fsa4480-i2c-handle", pdev->dev.of_node->full_name);
+	
+	pdata->max_handle = of_parse_phandle(pdev->dev.of_node,
+					     "max20328-i2c-handle", 0);
+	if (!pdata->max_handle){
+		max20328_state = false;
+		dev_dbg(&pdev->dev, "property %s not detected in node %s\n",
+			"max20328-i2c-handle", pdev->dev.of_node->full_name);
+		pr_err("%s: max20328_state %d.\n",__func__, max20328_state);
+		}else{
+		pr_err("%s: max20328_state1 %d.\n",__func__, max20328_state);
+		max20328_state = true;
+		}
+	#endif /* OPLUS_ARCH_EXTENDS */
 
 	/* Parse pinctrl info from devicetree */
 	ret = msm_get_pinctrl(pdev);
@@ -7842,6 +8199,10 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	if (ret < 0)
 		pr_err("%s: Audio notifier register failed ret = %d\n",
 			__func__, ret);
+
+	#ifdef OPLUS_ARCH_EXTENDS
+	pr_err("%s: sound card register success.\n", __func__);
+	#endif /* OPLUS_ARCH_EXTENDS */
 
 	return 0;
 err:
