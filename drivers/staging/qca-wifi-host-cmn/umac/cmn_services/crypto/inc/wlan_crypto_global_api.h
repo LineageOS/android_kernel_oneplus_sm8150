@@ -841,6 +841,26 @@ struct wlan_crypto_key *wlan_crypto_get_key(struct wlan_objmgr_vdev *vdev,
 QDF_STATUS wlan_crypto_set_key_req(struct wlan_objmgr_vdev *vdev,
 				   struct wlan_crypto_key *req,
 				   enum wlan_crypto_key_type key_type);
+
+/**
+ * wlan_crypto_free_vdev_key - Free keys for vdev
+ * @vdev: vdev object
+ *
+ * This function frees keys stored in vdev crypto object.
+ *
+ * Return: None
+ */
+void wlan_crypto_free_vdev_key(struct wlan_objmgr_vdev *vdev);
+
+/**
+ * wlan_crypto_reset_vdev_params - Reset params for vdev
+ * @vdev: vdev object
+ *
+ * This function reset params stored in vdev crypto object.
+ *
+ * Return: None
+ */
+void wlan_crypto_reset_vdev_params(struct wlan_objmgr_vdev *vdev);
 #else
 static inline void wlan_crypto_update_set_key_peer(
 						struct wlan_objmgr_vdev *vdev,
@@ -869,6 +889,14 @@ QDF_STATUS wlan_crypto_set_key_req(struct wlan_objmgr_vdev *vdev,
 				   enum wlan_crypto_key_type key_type)
 {
 	return QDF_STATUS_SUCCESS;
+}
+
+static inline void wlan_crypto_free_vdev_key(struct wlan_objmgr_vdev *vdev)
+{
+}
+
+static inline void wlan_crypto_reset_vdev_prarams(struct wlan_objmgr_vdev *vdev)
+{
 }
 #endif /* CRYPTO_SET_KEY_CONVERGED */
 

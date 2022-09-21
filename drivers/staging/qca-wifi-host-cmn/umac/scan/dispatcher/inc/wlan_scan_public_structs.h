@@ -57,6 +57,7 @@ typedef uint32_t wlan_scan_id;
 
 #define PROBE_REQ_BITMAP_LEN 8
 #define MAX_PROBE_REQ_OUIS 16
+#define TBTT_INFO_COUNT 16
 
 #define RSSI_WEIGHTAGE 20
 #define HT_CAPABILITY_WEIGHTAGE 2
