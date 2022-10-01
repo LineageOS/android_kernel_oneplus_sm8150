@@ -2056,7 +2056,7 @@ u32 oplus_onscreenfp_vblank_count = 0;
 #ifdef OPLUS_FEATURE_AOD_RAMLESS
 int oplus_display_mode = 1;
 atomic_t aod_onscreenfp_status = ATOMIC_INIT(0);
-static DECLARE_WAIT_QUEUE_HEAD(oplus_aod_wait);
+DECLARE_WAIT_QUEUE_HEAD(oplus_aod_wait);
 static int failsafe_mode = 0;
 DEFINE_MUTEX(oplus_failsafe_lock);
 

@@ -13,6 +13,14 @@
 #include "oplus_display_panel_common.h"
 
 int oplus_debug_max_brightness = 0;
+#ifdef OPLUS_FEATURE_AOD_RAMLESS
+extern atomic_t aod_onscreenfp_status;
+extern int oplus_display_mode;
+extern struct wait_queue_head oplus_aod_wait;
+#endif
+extern ktime_t oplus_onscreenfp_pressed_time;
+extern int oplus_onscreenfp_status;
+extern u32 oplus_onscreenfp_vblank_count;
 extern int lcd_closebl_flag;
 extern int oplus_dimlayer_hbm;
 extern int oplus_dimlayer_hbm_vblank_count;
@@ -596,6 +604,203 @@ int oplus_display_panel_set_dimlayer_hbm(void *data)
 	}
 	oplus_dimlayer_hbm = value;
 	pr_err("debug for oplus_display_set_dimlayer_hbm set oplus_dimlayer_hbm = %d\n", oplus_dimlayer_hbm);
+
+	return 0;
+}
+
+int oplus_display_panel_notify_fp_press(void *data)
+{
+	struct dsi_display *display = get_main_display();
+	struct drm_device *drm_dev = display->drm_dev;
+	struct drm_connector *dsi_connector = display->drm_conn;
+	struct drm_mode_config *mode_config = &drm_dev->mode_config;
+	struct msm_drm_private *priv = drm_dev->dev_private;
+	struct drm_atomic_state *state;
+	struct drm_crtc_state *crtc_state;
+	struct drm_crtc *crtc;
+	static ktime_t on_time;
+	int onscreenfp_status = 0;
+	int vblank_get = -EINVAL;
+	int err = 0;
+	int i;
+	bool if_con = false;
+	uint32_t *p_onscreenfp_status = data;
+
+#ifdef OPLUS_FEATURE_AOD_RAMLESS
+	struct drm_display_mode *cmd_mode = NULL;
+	struct drm_display_mode *vid_mode = NULL;
+	struct drm_display_mode *mode = NULL;
+	struct drm_display_mode *cur_mode = NULL;
+	bool mode_changed = false;
+#endif /* OPLUS_FEATURE_AOD_RAMLESS */
+
+	if (!dsi_connector || !dsi_connector->state || !dsi_connector->state->crtc) {
+		pr_err("[%s]: display not ready\n", __func__);
+		return -EINVAL;
+	}
+
+	onscreenfp_status = (*p_onscreenfp_status);
+
+	onscreenfp_status = !!onscreenfp_status;
+
+	if (onscreenfp_status == oplus_onscreenfp_status) {
+		return 0;
+	}
+
+	pr_err("notify fingerpress %s\n", onscreenfp_status ? "on" : "off");
+	if (!display->panel->oplus_priv.prj_flag) {
+		if (OPLUS_DISPLAY_AOD_SCENE == get_oplus_display_scene()) {
+			if (onscreenfp_status) {
+				on_time = ktime_get();
+			} else {
+				ktime_t now = ktime_get();
+				ktime_t delta = ktime_sub(now, on_time);
+
+				if (ktime_to_ns(delta) < 300000000) {
+					msleep(300 - (ktime_to_ns(delta) / 1000000));
+				}
+			}
+		}
+	}
+	vblank_get = drm_crtc_vblank_get(dsi_connector->state->crtc);
+
+	if (vblank_get) {
+		pr_err("failed to get crtc vblank\n", vblank_get);
+	}
+
+	oplus_onscreenfp_status = onscreenfp_status;
+#ifdef OPLUS_FEATURE_AOD_RAMLESS
+	if((0 == oplus_display_mode) && onscreenfp_status) {
+		atomic_set(&aod_onscreenfp_status, onscreenfp_status);
+	}
+#endif /* OPLUS_FEATURE_AOD_RAMLESS */
+
+	if_con = false;
+#ifdef OPLUS_FEATURE_AOD_RAMLESS
+	if_con = if_con && !display->panel->oplus_priv.is_aod_ramless;
+#endif /* OPLUS_FEATURE_AOD_RAMLESS */
+	if (if_con) {
+		/* enable the clk vote for CMD mode panels */
+		if (display->config.panel_mode == DSI_OP_CMD_MODE) {
+			dsi_display_clk_ctrl(display->dsi_clk_handle,
+				DSI_ALL_CLKS, DSI_CLK_ON);
+		}
+
+		mutex_lock(&display->panel->panel_lock);
+
+		if (display->panel->panel_initialized) {
+			err = dsi_panel_tx_cmd_set(display->panel, DSI_CMD_AOD_HBM_ON);
+		}
+
+		mutex_unlock(&display->panel->panel_lock);
+
+		if (err) {
+			pr_err("failed to setting aod hbm on mode %d\n", err);
+		}
+
+		if (display->config.panel_mode == DSI_OP_CMD_MODE) {
+			dsi_display_clk_ctrl(display->dsi_clk_handle,
+				DSI_ALL_CLKS, DSI_CLK_OFF);
+		}
+	}
+
+#ifdef OPLUS_FEATURE_AOD_RAMLESS
+	if (!display->panel->oplus_priv.is_aod_ramless) {
+#endif /* OPLUS_FEATURE_AOD_RAMLESS */
+		oplus_onscreenfp_vblank_count = drm_crtc_vblank_count(
+			dsi_connector->state->crtc);
+		oplus_onscreenfp_pressed_time = ktime_get();
+#ifdef OPLUS_FEATURE_AOD_RAMLESS
+	}
+#endif /* OPLUS_FEATURE_AOD_RAMLESS */
+
+	drm_modeset_lock_all(drm_dev);
+
+	state = drm_atomic_state_alloc(drm_dev);
+
+	if (!state) {
+		goto error;
+	}
+
+	state->acquire_ctx = mode_config->acquire_ctx;
+	crtc = dsi_connector->state->crtc;
+	crtc_state = drm_atomic_get_crtc_state(state, crtc);
+#ifdef OPLUS_FEATURE_AOD_RAMLESS
+	cur_mode = &crtc->state->mode;
+#endif /* OPLUS_FEATURE_AOD_RAMLESS */
+
+	for (i = 0; i < priv->num_crtcs; i++) {
+		if (priv->disp_thread[i].crtc_id == crtc->base.id) {
+			if (priv->disp_thread[i].thread) {
+				kthread_flush_worker(&priv->disp_thread[i].worker);
+			}
+		}
+	}
+
+#ifdef OPLUS_FEATURE_AOD_RAMLESS
+	if (display->panel->oplus_priv.is_aod_ramless) {
+		struct drm_display_mode *set_mode = NULL;
+
+		if (oplus_display_mode == 2) {
+			pr_info("%s: return for oplus_display_mode == 2\n", __func__);
+			goto error;
+		}
+
+		list_for_each_entry(mode, &dsi_connector->modes, head) {
+			if (drm_mode_vrefresh(mode) == 0)
+				continue;
+			if (mode->clock != cur_mode->clock)
+				continue;
+			if (mode->flags & DRM_MODE_FLAG_VID_MODE_PANEL)
+				vid_mode = mode;
+			if (mode->flags & DRM_MODE_FLAG_CMD_MODE_PANEL)
+				cmd_mode = mode;
+		}
+		if (!display->panel->oplus_priv.prj_flag)
+			set_mode = oplus_display_mode ? vid_mode : cmd_mode;
+
+		set_mode = onscreenfp_status ? vid_mode : set_mode;
+		if (!crtc_state->active || !crtc_state->enable)
+			goto error;
+
+		if (set_mode && drm_mode_vrefresh(set_mode) != drm_mode_vrefresh(&crtc_state->mode)) {
+			mode_changed = true;
+		} else {
+			mode_changed = false;
+		}
+
+		if (mode_changed) {
+			display->panel->dyn_clk_caps.dyn_clk_support = false;
+			drm_atomic_set_mode_for_crtc(crtc_state, set_mode);
+		}
+
+		wake_up(&oplus_aod_wait);
+	}
+#endif /* OPLUS_FEATURE_AOD_RAMLESS */
+
+	err = drm_atomic_commit(state);
+	drm_atomic_state_put(state);
+
+#ifdef OPLUS_FEATURE_AOD_RAMLESS
+	if (display->panel->oplus_priv.is_aod_ramless && mode_changed) {
+		for (i = 0; i < priv->num_crtcs; i++) {
+			if (priv->disp_thread[i].crtc_id == crtc->base.id) {
+				if (priv->disp_thread[i].thread) {
+					kthread_flush_worker(&priv->disp_thread[i].worker);
+				}
+			}
+		}
+		if (oplus_display_mode == 1)
+			display->panel->dyn_clk_caps.dyn_clk_support = true;
+	}
+#endif /* OPLUS_FEATURE_AOD_RAMLESS */
+
+error:
+	drm_modeset_unlock_all(drm_dev);
+
+	if (!vblank_get) {
+		drm_crtc_vblank_put(dsi_connector->state->crtc);
+	}
 
 	return 0;
 }

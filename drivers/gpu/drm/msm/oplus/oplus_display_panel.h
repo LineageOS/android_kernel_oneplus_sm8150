@@ -112,6 +112,7 @@ struct hecate_info {
 #define PANEL_IOCTL_SET_DIMLAYER_HBM		  PANEL_IOW(0x1F, unsigned int)
 #define PANEL_IOCTL_GET_DIMLAYER_HBM		  PANEL_IOWR(0x20, unsigned int)
 #define PANEL_IOCTL_SET_DIMLAYER_BL_EN        PANEL_IOW(0X21, unsigned int)
+#define PANEL_IOCTL_SET_FP_PRESS              PANEL_IOW(0x29, unsigned int)
 #define PANEL_IOCTL_GET_OPLUS_BRIGHTNESS      PANEL_IOWR(0x2B, unsigned int)
 #define PANEL_IOCTL_SET_AOD_AREA              PANEL_IOW(0x2E, struct panel_aod_area_para)
 #define PANEL_IOCTL_SET_HECATE_INFO           PANEL_IOW(0x54, struct hecate_info)

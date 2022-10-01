@@ -53,6 +53,7 @@ static const struct panel_ioctl_desc panel_ioctls[] = {
 	PANEL_IOCTL_DEF(PANEL_IOCTL_GET_DIMLAYER_HBM, oplus_display_panel_get_dimlayer_hbm),
 	PANEL_IOCTL_DEF(PANEL_IOCTL_SET_DIMLAYER_BL_EN, oplus_display_panel_set_dimlayer_enable),
 	PANEL_IOCTL_DEF(PANEL_IOCTL_GET_OPLUS_BRIGHTNESS, oplus_display_panel_get_brightness),
+	PANEL_IOCTL_DEF(PANEL_IOCTL_SET_FP_PRESS, oplus_display_panel_notify_fp_press),
 	PANEL_IOCTL_DEF(PANEL_IOCTL_SET_AOD_AREA,  oplus_display_set_aod_area),
 	PANEL_IOCTL_DEF(PANEL_IOCTL_SET_HECATE_INFO,  oplus_display_panel_set_hecate_info),
 };

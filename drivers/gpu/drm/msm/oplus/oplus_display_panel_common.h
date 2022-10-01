@@ -55,4 +55,5 @@ int oplus_display_panel_set_closebl_flag(void *data);
 int oplus_display_panel_get_brightness(void *buf);
 int oplus_display_set_aod_area(void *buf);
 int oplus_display_panel_set_dimlayer_hbm(void *data);
+int oplus_display_panel_notify_fp_press(void *data);
 #endif /*_OPLUS_DISPLAY_PANEL_COMMON_H_*/
