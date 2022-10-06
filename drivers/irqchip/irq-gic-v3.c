@@ -487,6 +487,7 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 
 		pr_warn("%s: %d triggered %s\n", __func__, irq, name);
 
+#ifdef OPLUS_FEATURE_POWERINFO_STANDBY
 #ifdef OPLUS_FEATURE_MODEM_DATA_NWPOWER
 		/*
 		*Add for: print qrtr debug msg and fix QMI wakeup statistics for QCOM platforms using glink
@@ -500,11 +501,10 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 		}
 #endif /* OPLUS_FEATURE_MODEM_DATA_NWPOWER */
 
-		#ifdef OPLUS_FEATURE_POWERINFO_STANDBY
 		do {
 			wakeup_reasons_statics(name, WS_CNT_MODEM|WS_CNT_WLAN|WS_CNT_ADSP|WS_CNT_CDSP|WS_CNT_SLPI);
 		} while(0);
-		#endif /* OPLUS_FEATURE_POWERINFO_STANDBY */
+#endif /* OPLUS_FEATURE_POWERINFO_STANDBY */
 	}
 }
 
