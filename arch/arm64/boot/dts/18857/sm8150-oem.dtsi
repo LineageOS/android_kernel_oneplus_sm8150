@@ -405,31 +405,6 @@
 };
 
 
-/* Add for NXP NFCC */
-&qupv3_se9_i2c {
-    nq@28 {
-        status = "disabled";
-    };
-
-    pn5xx@28 {
-        compatible = "nxp,pn544";
-        reg = <0x28>;
-        nxp,pn544-irq = <&tlmm 47 0x00>;
-        nxp,pn544-ven = <&tlmm 41 0x00>;
-        nxp,pn544-fw-dwnld = <&tlmm 48 0x00>;
-        nxp,pn544-clk-gpio = <&tlmm 113 0x00>;
-        nxp,pn544-ese-pwr = <&tlmm 49 0x00>;
-        nfc_voltage_s4-supply = <&pm8150_s4>;
-        interrupt-parent = <&tlmm>;
-        qcom,clk-src = "BBCLK3";
-        interrupts = <47 0>;
-        interrupt-names = "nfc_irq";
-        pinctrl-names = "nfc_active", "nfc_suspend";
-        pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
-        pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
-    };
-};
-
 /* Add for NXP eSE */
 &qupv3_se0_spi {
     status = "ok";
