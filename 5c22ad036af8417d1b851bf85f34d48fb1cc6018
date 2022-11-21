@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "15a5e741_e43473e9",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 16
+      },
+      "writtenOn": "2022-11-21T07:28:15Z",
+      "side": 1,
+      "message": "Seeing as we use essentially the same kernel for 19.1 and 20.0, this should work just as well here.",
+      "revId": "5c22ad036af8417d1b851bf85f34d48fb1cc6018",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
