@@ -26,6 +26,29 @@
     {
       "unresolved": true,
       "key": {
+        "uuid": "1f64e806_41e8ebd9",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2023-02-01T09:33:26Z",
+      "side": 1,
+      "message": "auto wrap at 72ch.",
+      "range": {
+        "startLine": 9,
+        "startChar": 0,
+        "endLine": 9,
+        "endChar": 181
+      },
+      "revId": "986bc05e9f89daa0ae8749a1d1b58e33c60bbefc",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
         "uuid": "79d2ced3_64374146",
         "filename": "arch/arm64/boot/dts/19863/dsi-panel-samsung_sofef03f_m_fhd_dsc_cmd.dtsi",
         "patchSetId": 1
