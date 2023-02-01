@@ -131,7 +131,7 @@
 						];
 
 					qcom,mdss-dsi-timing-switch-command = [
-						/* 60hz â†?90hz Transition */
+						/* 60hz ï¿½?90hz Transition */
 						39 01 00 00 00 00 03 F0 5A 5A
 						39 01 00 00 00 00 02 60 00				/* 0x00 : 60 Hz */
 						39 01 00 00 00 00 03 F0 A5 A5
@@ -206,7 +206,7 @@
 						39 01 00 00 00 00 03 FC A5 A5
 						/* Brightness Control */
 						39 01 00 00 00 00 02 53 20				/* 0x20 Normal transition */
-						/* 60hz â†?90hz Transition */
+						/* 60hz ï¿½?90hz Transition */
 						39 01 00 00 00 00 03 F0 5A 5A
 						39 01 00 00 00 00 02 60 00				/* 0x00 : 60 Hz */
 						39 01 00 00 3C 00 03 F0 A5 A5
@@ -729,7 +729,7 @@
 						];
 
 					qcom,mdss-dsi-timing-switch-command = [
-						/* 60hz â†?90hz Transition */
+						/* 60hz ï¿½?90hz Transition */
 						39 01 00 00 00 00 03 F0 5A 5A
 						39 01 00 00 00 00 02 60 10				/* 0x10 : 90 Hz */
 						39 01 00 00 00 00 03 F0 A5 A5
@@ -804,7 +804,7 @@
 						39 01 00 00 00 00 03 FC A5 A5
 						/* Brightness Control */
 						39 01 00 00 00 00 02 53 20				/* 0x20 Normal transition */
-						/* 60hz â†?90hz Transition */
+						/* 60hz ï¿½?90hz Transition */
 						39 01 00 00 00 00 03 F0 5A 5A
 						39 01 00 00 00 00 02 60 10				/* 0x10 : 90 Hz */
 						39 01 00 00 3C 00 03 F0 A5 A5
