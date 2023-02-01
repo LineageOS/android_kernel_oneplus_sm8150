@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "79d2ced3_64374146",
+        "filename": "arch/arm64/boot/dts/19863/dsi-panel-samsung_sofef03f_m_fhd_dsc_cmd.dtsi",
+        "patchSetId": 1
+      },
+      "lineNbr": 134,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2023-02-01T09:31:44Z",
+      "side": 1,
+      "message": "git checkout -p HEAD~ arch/arm64/boot/dts/19863/dsi-panel-samsung_sofef03f_m_fhd_dsc_cmd.dtsi unrelated changes like this.",
+      "revId": "986bc05e9f89daa0ae8749a1d1b58e33c60bbefc",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
