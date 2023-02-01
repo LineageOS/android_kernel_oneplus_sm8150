@@ -3,6 +3,29 @@
     {
       "unresolved": true,
       "key": {
+        "uuid": "63e0ff65_3dafb7ad",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2023-02-01T09:33:07Z",
+      "side": 1,
+      "message": "arm64: dts: Lower OPlus SM8150 devices max brightness to 1023",
+      "range": {
+        "startLine": 7,
+        "startChar": 0,
+        "endLine": 7,
+        "endChar": 77
+      },
+      "revId": "986bc05e9f89daa0ae8749a1d1b58e33c60bbefc",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
         "uuid": "79d2ced3_64374146",
         "filename": "arch/arm64/boot/dts/19863/dsi-panel-samsung_sofef03f_m_fhd_dsc_cmd.dtsi",
         "patchSetId": 1
