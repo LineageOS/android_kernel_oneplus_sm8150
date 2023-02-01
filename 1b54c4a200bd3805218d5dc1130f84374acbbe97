@@ -33,6 +33,24 @@
       "message": "actually, I\u0027ll rewrap the commit msg first.",
       "revId": "1b54c4a200bd3805218d5dc1130f84374acbbe97",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "4a47be2b_5f865e41",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 6
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 15011
+      },
+      "writtenOn": "2023-02-01T16:03:36Z",
+      "side": 1,
+      "message": "Yes.",
+      "parentUuid": "90d68d23_88117791",
+      "revId": "1b54c4a200bd3805218d5dc1130f84374acbbe97",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
