@@ -16,6 +16,23 @@
       "message": "merge?",
       "revId": "1b54c4a200bd3805218d5dc1130f84374acbbe97",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "710c8072_1b1cf638",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 6
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2023-02-01T15:44:02Z",
+      "side": 1,
+      "message": "actually, I\u0027ll rewrap the commit msg first.",
+      "revId": "1b54c4a200bd3805218d5dc1130f84374acbbe97",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
