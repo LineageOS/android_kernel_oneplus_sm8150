@@ -80,6 +80,24 @@
       "parentUuid": "79d2ced3_64374146",
       "revId": "986bc05e9f89daa0ae8749a1d1b58e33c60bbefc",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "bea0c6ff_9a4111b0",
+        "filename": "arch/arm64/boot/dts/19863/dsi-panel-samsung_sofef03f_m_fhd_dsc_cmd.dtsi",
+        "patchSetId": 1
+      },
+      "lineNbr": 134,
+      "author": {
+        "id": 15011
+      },
+      "writtenOn": "2023-02-01T10:12:12Z",
+      "side": 1,
+      "message": "Ah, fixed.",
+      "parentUuid": "d3973fef_924ee980",
+      "revId": "986bc05e9f89daa0ae8749a1d1b58e33c60bbefc",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
