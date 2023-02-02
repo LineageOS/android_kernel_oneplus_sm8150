@@ -16,6 +16,24 @@
       "message": "What\u0027s the value in enabling it?",
       "revId": "345969dcb9ab9f77f914e4e2961fe4c157d38ba5",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "49380430_20b2f9e2",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 15011
+      },
+      "writtenOn": "2023-02-02T07:15:41Z",
+      "side": 1,
+      "message": "Well, to explain you currently there\u0027s speed regression on some EU/GLO based region devices. basically this so called oplus DNS hooks does the packet filtering via ipv4 / ipv6 protocol. there\u0027s also changing DNS url functionality which i am not sure if oneplus is triggering through fwb or any sysfs exported property but overall some of my tester had tested with this hook enabled and internet speed were fine with first firmware they released. \n\nBut surely more testing can be done with all the regions and if it\u0027s adding a proper value add then can merge this. also this should be aligned with last latest update, however i don\u0027t think they are going release the kernel sources again as by comparing the defconfigs of both the releases this was the only change.",
+      "parentUuid": "bdad8a8e_3f72f703",
+      "revId": "345969dcb9ab9f77f914e4e2961fe4c157d38ba5",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
