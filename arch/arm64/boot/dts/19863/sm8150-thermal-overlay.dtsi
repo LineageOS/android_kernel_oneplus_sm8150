@@ -127,22 +127,29 @@
 
 	soc {
 		cooling-maps {
-			soctrip_cpu4 {
-				trip = <&soc_trip2>;
+			soc_cpu4 {
+				trip = <&soc_trip>;
 				cooling-device =
-					<&CPU4 6 6>;
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
-			soctrip_cpu7 {
-				trip = <&soc_trip2>;
+			soc_cpu5 {
+				trip = <&soc_trip>;
 				cooling-device =
-					<&CPU7 THERMAL_MAX_LIMIT
-					THERMAL_MAX_LIMIT>;
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
-			soctrip_cpu6 {
+			soc_cpu6 {
 				trip = <&soc_trip>;
 				cooling-device =
 					<&CPU6 THERMAL_MAX_LIMIT
-					THERMAL_MAX_LIMIT>;
+						THERMAL_MAX_LIMIT>;
+			};
+			soc_cpu7 {
+				trip = <&soc_trip>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 		};
 	};

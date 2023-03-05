@@ -678,9 +678,9 @@
 		qcom,pre-scaling = <1 1>;
 	};
 
-	msm_therm {
+	skin_msm_therm {
 		reg = <ADC_AMUX_THM2_PU2>;
-		label = "msm_therm";
+		label = "skin_msm_therm";
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
@@ -738,7 +738,7 @@
 		qcom,hw-settle-time = <200>;
 	};
 
-	msm_therm {
+	skin_msm_therm {
 		reg = <ADC_AMUX_THM2_PU2>;
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
@@ -819,7 +819,7 @@
 		};
 	};
 
-	msm-therm {
+	skin-msm-therm {
 		polling-delay-passive = <2000>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
