@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "796001f7_f414d9a4",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 9760
+      },
+      "writtenOn": "2023-07-23T14:37:26Z",
+      "side": 1,
+      "message": "But what about the vendor?\nIn particular the charger...\nhttps://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8150\n\nThere are a lot of changes there.",
+      "revId": "ad56379984852c8ab1d103133f01d04c544bb4f5",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
