@@ -16,6 +16,24 @@
       "message": "But what about the vendor?\nIn particular the charger...\nhttps://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8150\n\nThere are a lot of changes there.",
       "revId": "ad56379984852c8ab1d103133f01d04c544bb4f5",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "7d7a56a0_39fd3d17",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2023-07-23T14:38:30Z",
+      "side": 1,
+      "message": "Battery drivers weren\u0027t used by anything and everything else was either already there (audio ext) or useless for us.",
+      "parentUuid": "796001f7_f414d9a4",
+      "revId": "ad56379984852c8ab1d103133f01d04c544bb4f5",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
