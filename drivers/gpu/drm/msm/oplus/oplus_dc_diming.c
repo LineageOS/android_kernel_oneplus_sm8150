@@ -46,7 +46,7 @@ extern atomic_t oplus_dimlayer_hbm_vblank_ref;
 extern int oplus_dc2_alpha;
 extern int oplus_seed_backlight;
 extern int oplus_panel_alpha;
-extern oplus_dc_v2_on;
+extern bool oplus_dc_v2_on;
 extern ktime_t oplus_backlight_time;
 #ifdef OPLUS_FEATURE_AOD_RAMLESS
 extern int oplus_display_mode;
