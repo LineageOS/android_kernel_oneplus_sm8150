@@ -291,6 +291,7 @@ static int tri_key_dev_probe(struct platform_device *pdev)
 		goto fail;
 	}
 	trikey_data->input_dev->name = TRI_KEY_DEVICE;
+	trikey_data->input_dev->id.vendor = 0x22d9; /* VENDOR_ID_OPPO */
 
 	set_bit(EV_SYN, trikey_data->input_dev->evbit);
 	set_bit(EV_KEY, trikey_data->input_dev->evbit);
