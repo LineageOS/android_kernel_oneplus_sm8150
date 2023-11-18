@@ -1,0 +1,19 @@
+menuconfig OPLUS_FINGERPRINT
+	bool "OPLUS fingerprint"
+	depends on SPI_MASTER
+	help
+	  Say Y here to enable OPLUS fingerprint support
+
+config OPLUS_FINGERPRINT_GKI_DISABLE
+       default n
+       tristate "Fingerprint enable gki"
+
+if OPLUS_FINGERPRINT
+### fingerprint sensor config
+config OPLUS_FINGERPRINT_GOODIX
+       default n
+       tristate "Fingerprint base on goodix capacitive chip"
+config OPLUS_FINGERPRINT_GOODIX_OPTICAL
+       default n
+       tristate "Fingerprint base on goodix optical chip"
+endif #OPLUS_FINGERPRINT

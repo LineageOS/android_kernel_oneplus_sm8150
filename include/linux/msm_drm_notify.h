@@ -20,6 +20,9 @@
 /* A hardware display blank early change occurred */
 #define MSM_DRM_EARLY_EVENT_BLANK		0x02
 
+/* event for onscreenfingerprint scene */
+#define MSM_DRM_ONSCREENFINGERPRINT_EVENT	0x10
+
 enum {
 	/* panel: power on */
 	MSM_DRM_BLANK_UNBLANK,
