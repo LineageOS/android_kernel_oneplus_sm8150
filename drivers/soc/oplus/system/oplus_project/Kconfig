@@ -1,0 +1,8 @@
+#
+#oplus project info configuration
+#
+config OPLUS_FEATURE_OPROJECT
+	tristate "config oplus project info for kernel"
+	default n
+	help
+	  define this config to define oplus project

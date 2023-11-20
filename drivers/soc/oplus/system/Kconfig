@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2018-2020 Oplus. All rights reserved.
+config OPLUS_SYSTEM_KERNEL
+	bool "config oplus system feature"
+	help
+	  define this config to add oplus sytstem kernel feature
+
+config OPLUS_COMMON_SOFT
+	bool "config oplus common software"
+	help
+	  define this config to get project verion from sharemem.
+	  Maybe this value is from CDT or dynamic identify by hardware
+	  id.
+
+config OPLUS_FEATURE_DETAILHEAD
+	tristate "config detail kmsg"
+	help
+	  define this config to add cpu number and current id and current comm to kmsg
+
+source "drivers/soc/oplus/system/oplus_project/Kconfig"
+source "drivers/soc/oplus/system/project_info/Kconfig"
+source "drivers/soc/oplus/system/qcom_pmicwd/Kconfig"
