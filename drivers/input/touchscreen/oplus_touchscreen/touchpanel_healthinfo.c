@@ -1117,7 +1117,7 @@ int tp_healthinfo_report(void *tp_monitor_data, healthinfo_type type, void *valu
         ret = tp_grip_up_healthinfo_handle(monitor_data, *value_uint8, monitor_data->direction);
         break;
     case HEALTH_BELOW_RATE:
-        ret = tp_irq_interval_handle(monitor_data, (int)value);
+        ret = tp_irq_interval_handle(monitor_data, (uintptr_t)value);
         break;
     default:
         break;
