@@ -2,6 +2,7 @@
 ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging -Idrivers/gpu/drm/msm/dp
 ccflags-y += -Idrivers/gpu/drm/msm/display-manager
 ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
+ccflags-y += -Idrivers/gpu/drm/msm/oplus
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
 ccflags-y += -Idrivers/gpu/drm/msm/sde
 ccflags-y += -Idrivers/media/platform/msm/sde/rotator
@@ -218,5 +219,18 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_prop.o \
 	msm_fence.o \
 	msm_debugfs.o
+
+msm_drm-y += \
+	oplus/oplus_dsi_support.o \
+	oplus/oplus_display_private_api.o \
+	oplus/oplus_dc_diming.o \
+	oplus/oplus_onscreenfingerprint.o \
+	oplus/oplus_aod.o \
+	oplus/oplus_ffl.o \
+	oplus/oplus_display_panel.o \
+	oplus/oplus_display_panel_power.o \
+	oplus/oplus_display_panel_seed.o \
+	oplus/oplus_display_panel_common.o \
+	oplus/oplus_display_panel_hbm.o
 
 obj-$(CONFIG_DRM_MSM)	+= msm_drm.o
