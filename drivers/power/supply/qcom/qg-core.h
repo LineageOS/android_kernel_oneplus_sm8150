@@ -143,6 +143,9 @@ struct qpnp_qg {
 	bool			charge_full;
 	bool			force_soc;
 	bool			fvss_active;
+#ifdef VENDOR_EDIT
+	bool			enable_qpnp_qg;
+#endif
 	bool			tcss_active;
 	bool			bass_active;
 	int			charge_status;
@@ -203,6 +206,36 @@ struct qpnp_qg {
 	struct cycle_counter	*counter;
 	/* ttf */
 	struct ttf		*ttf;
+            
+#ifdef VENDOR_EDIT
+	/* Yichun.Chen  PSW.BSP.CHG  2018-06-13  avoid when reboot soc reduce 1% */
+        int			skip_scale_soc_count;
+#endif
+    
+#ifdef VENDOR_EDIT
+	/* Yichun.Chen  PSW.BSP.CHG  2018-08-23  recognize SDI\ATL battery */
+	int			atl_4_45_battery_id_low;
+	int			atl_4_45_battery_id_high;
+	int			atl_4_4_battery_id_low;
+	int			atl_4_4_battery_id_high;
+	int			sdi_4_45_battery_id_low;
+	int			sdi_4_45_battery_id_high;
+	int			sdi_4_4_battery_id_low;
+	int			sdi_4_4_battery_id_high;
+	int			lw_battery_id_low;
+	int			lw_battery_id_high;
+	int			cl_battery_id_low;
+	int			cl_battery_id_high;
+#endif
+
+#ifdef VENDOR_EDIT
+	/* Ji.Xu PSW.BSP.CHG  2018-07-23  Save battery capacity to persist partition */
+	int			batt_info[6];
+	int			batt_info_id;
+	bool			*batt_range_ocv;
+	int			*batt_range_pct;
+#endif
+
 };
 
 struct ocv_all {

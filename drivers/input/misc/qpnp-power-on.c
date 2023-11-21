@@ -34,7 +34,9 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/qpnp/qpnp-pbs.h>
 #include <linux/qpnp/qpnp-misc.h>
+#include <linux/io.h>
 
+#define GPIO109_ADDR				0x3D77000
 #define PMIC_VER_8941				0x01
 #define PMIC_VERSION_REG			0x0105
 #define PMIC_VERSION_REV4_REG			0x0103
@@ -201,6 +203,7 @@ struct pon_regulator {
 	bool			enabled;
 };
 
+#ifndef OPLUS_FEATURE_QCOM_PMICWD
 struct qpnp_pon {
 	struct device		*dev;
 	struct regmap		*regmap;
@@ -244,13 +247,17 @@ struct qpnp_pon {
 	struct notifier_block	pon_nb;
 	bool			legacy_hard_reset_offset;
 };
+#endif //OPLUS_FEATURE_QCOM_PMICWD
 
 static int pon_ship_mode_en;
 module_param_named(
 	ship_mode_en, pon_ship_mode_en, int, 0600
 );
 
+#ifndef OPLUS_FEATURE_QCOM_PMICWD
 static struct qpnp_pon *sys_reset_dev;
+#endif //OPLUS_FEATURE_QCOM_PMICWD
+
 static DEFINE_SPINLOCK(spon_list_slock);
 static LIST_HEAD(spon_dev_list);
 
@@ -356,8 +363,12 @@ done:
 	return rc;
 }
 
+#ifdef OPLUS_FEATURE_QCOM_PMICWD
+int qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
+#else
 static int
 qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
+#endif /* OPLUS_FEATURE_QCOM_PMICWD */
 {
 	int rc;
 
@@ -1625,12 +1636,25 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon,
 	int rc = 0, i = 0, pmic_wd_bark_irq;
 	struct device_node *cfg_node = NULL;
 	struct qpnp_pon_config *cfg;
+	void __iomem *gpio_addr = NULL;
+	u32 detect_gpio_status, detect_gpio_status_1;
 
 	if (pon->num_pon_config) {
 		pon->pon_cfg = devm_kcalloc(pon->dev, pon->num_pon_config,
 					    sizeof(*pon->pon_cfg), GFP_KERNEL);
 		if (!pon->pon_cfg)
 			return -ENOMEM;
+	}
+
+	gpio_addr = ioremap(GPIO109_ADDR , 4);
+	if (!gpio_addr) {
+		pr_err("GPIO109_ioremap_fail\n");
+	} else {
+		detect_gpio_status = __raw_readl(gpio_addr);
+		printk("detect_gpio_status = 0x%x\n",detect_gpio_status);
+		__raw_writel((~(1 << 20)) & detect_gpio_status, gpio_addr);
+		detect_gpio_status_1 = __raw_readl(gpio_addr);
+		printk("detect_gpio_status_1 = 0x%x\n",detect_gpio_status_1);
 	}
 
 	/* Iterate through the list of pon configs */
@@ -2145,6 +2169,8 @@ static int qpnp_pon_configure_s3_reset(struct qpnp_pon *pon)
 	return 0;
 }
 
+#define PON_POFF_REG_ADDR 0x8c0
+#define PON_POFF_REG_COUNT 10
 static int qpnp_pon_read_hardware_info(struct qpnp_pon *pon, bool sys_reset)
 {
 	struct device *dev = pon->dev;
@@ -2154,6 +2180,8 @@ static int qpnp_pon_read_hardware_info(struct qpnp_pon *pon, bool sys_reset)
 	unsigned int pon_sts = 0;
 	u16 poff_sts = 0;
 	int rc, index;
+	u8 pm_pmic_reg[PON_POFF_REG_COUNT];
+	int i;
 
 	/* Read PON_PERPH_SUBTYPE register to get PON type */
 	rc = qpnp_pon_read(pon, QPNP_PON_PERPH_SUBTYPE(pon), &reg);
@@ -2197,6 +2225,10 @@ static int qpnp_pon_read_hardware_info(struct qpnp_pon *pon, bool sys_reset)
 		boot_reason = ffs(pon_sts);
 
 	index = ffs(pon_sts) - 1;
+#ifdef OPLUS_BUG_STABILITY
+	if (pon_sts & 0x80)
+		index = 7;
+#endif /*OPLUS_BUG_STABILITY*/
 	cold_boot = sys_reset_dev ? !_qpnp_pon_is_warm_reset(sys_reset_dev)
 				  : !_qpnp_pon_is_warm_reset(pon);
 	if (index >= ARRAY_SIZE(qpnp_pon_reason) || index < 0) {
@@ -2244,6 +2276,17 @@ static int qpnp_pon_read_hardware_info(struct qpnp_pon *pon, bool sys_reset)
 		panic("UVLO occurred");
 	}
 
+	/*PON dump register printing debug log*/
+	rc = regmap_bulk_read(pon->regmap, QPNP_PON_REASON1(pon), pm_pmic_reg, PON_POFF_REG_COUNT);
+	if (rc) {
+		dev_err(pon->dev, "Register read failed, addr=0x%04X, rc=%d\n", QPNP_PON_REASON1(pon), rc);
+	}
+	else {
+		dev_info(dev,"===PMIC PON Register dump===\n");
+		for (i=0; i<PON_POFF_REG_COUNT; i++) {
+			dev_info(dev,"Register %x value : 0x%x\n",PON_POFF_REG_ADDR+i,pm_pmic_reg[i]);
+		}
+	}
 	return 0;
 }
 
@@ -2462,6 +2505,11 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 
 	qpnp_pon_debugfs_init(pon);
 
+	#ifdef OPLUS_FEATURE_QCOM_PMICWD
+	pmicwd_init(pdev, pon, sys_reset);
+	kpdpwr_init(pon, sys_reset);
+	#endif /* OPLUS_FEATURE_QCOM_PMICWD */
+
 	return 0;
 }
 
@@ -2542,11 +2590,11 @@ static const struct of_device_id qpnp_pon_match_table[] = {
 
 static struct platform_driver qpnp_pon_driver = {
 	.driver = {
+		#ifdef OPLUS_FEATURE_QCOM_PMICWD
+		.pm = &qpnp_pm_ops,
+		#endif //OPLUS_FEATURE_QCOM_PMICWD
 		.name = "qcom,qpnp-power-on",
 		.of_match_table = qpnp_pon_match_table,
-#ifdef CONFIG_PM
-		.pm = &qpnp_pon_pm_ops,
-#endif
 	},
 	.probe = qpnp_pon_probe,
 	.remove = qpnp_pon_remove,
