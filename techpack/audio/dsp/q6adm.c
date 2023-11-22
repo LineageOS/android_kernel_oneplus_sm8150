@@ -68,6 +68,9 @@ struct adm_copp {
 	atomic_t channels[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t app_type[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t acdb_id[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
+#ifdef OPLUS_ARCH_EXTENDS
+	atomic_t session_type[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
+#endif /* OPLUS_ARCH_EXTENDS */
 	wait_queue_head_t wait[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	wait_queue_head_t adm_delay_wait[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t adm_delay_stat[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
@@ -277,8 +280,14 @@ static int adm_get_copp_id(int port_idx, int copp_idx)
 	return atomic_read(&this_adm.copp.id[port_idx][copp_idx]);
 }
 
+#ifdef OPLUS_ARCH_EXTENDS
+static int adm_get_idx_if_copp_exists(int port_idx, int topology, int mode,
+				 int rate, int bit_width, int app_type,
+				 int session_type)
+#else /* OPLUS_ARCH_EXTENDS */
 static int adm_get_idx_if_copp_exists(int port_idx, int topology, int mode,
 				 int rate, int bit_width, int app_type)
+#endif /* OPLUS_ARCH_EXTENDS */
 {
 	int idx;
 
@@ -292,6 +301,11 @@ static int adm_get_idx_if_copp_exists(int port_idx, int topology, int mode,
 		    (rate == atomic_read(&this_adm.copp.rate[port_idx][idx])) &&
 		    (bit_width ==
 			atomic_read(&this_adm.copp.bit_width[port_idx][idx])) &&
+#ifdef OPLUS_ARCH_EXTENDS
+			(session_type ==
+			atomic_read(
+				&this_adm.copp.session_type[port_idx][idx])) &&
+#endif /* OPLUS_ARCH_EXTENDS */
 		    (app_type ==
 			atomic_read(&this_adm.copp.app_type[port_idx][idx])))
 			return idx;
@@ -1528,6 +1542,10 @@ static void adm_reset_data(void)
 			    &this_adm.copp.app_type[i][j], 0);
 			atomic_set(
 			   &this_adm.copp.acdb_id[i][j], 0);
+#ifdef OPLUS_ARCH_EXTENDS
+			atomic_set(
+				&this_adm.copp.session_type[i][j], 0);
+#endif /* OPLUS_ARCH_EXTENDS */
 			this_adm.copp.adm_status[i][j] =
 				ADM_STATUS_CALIBRATION_REQUIRED;
 		}
@@ -2178,7 +2196,10 @@ static struct cal_block_data *adm_find_cal_by_path(int cal_index, int path)
 
 		if (cal_index == ADM_AUDPROC_CAL ||
 		    cal_index == ADM_LSM_AUDPROC_CAL ||
-		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL) {
+#ifdef OPLUS_ARCH_EXTENDS
+		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL ||
+		    cal_index == ADM_AUDPROC_PERSISTENT_CAL) {
+#endif /* OPLUS_ARCH_EXTENDS */
 			audproc_cal_info = cal_block->cal_info;
 			if ((audproc_cal_info->path == path) &&
 			    (cal_block->cal_data.size > 0))
@@ -2216,7 +2237,10 @@ static struct cal_block_data *adm_find_cal_by_app_type(int cal_index, int path,
 
 		if (cal_index == ADM_AUDPROC_CAL ||
 		    cal_index == ADM_LSM_AUDPROC_CAL ||
-		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL) {
+#ifdef OPLUS_ARCH_EXTENDS
+		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL ||
+		    cal_index == ADM_AUDPROC_PERSISTENT_CAL) {
+#endif /* OPLUS_ARCH_EXTENDS */
 			audproc_cal_info = cal_block->cal_info;
 			if ((audproc_cal_info->path == path) &&
 			    (audproc_cal_info->app_type == app_type) &&
@@ -2257,7 +2281,10 @@ static struct cal_block_data *adm_find_cal(int cal_index, int path,
 
 		if (cal_index == ADM_AUDPROC_CAL ||
 		    cal_index == ADM_LSM_AUDPROC_CAL ||
-		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL) {
+#ifdef OPLUS_ARCH_EXTENDS
+		    cal_index == ADM_LSM_AUDPROC_PERSISTENT_CAL||
+		    cal_index == ADM_AUDPROC_PERSISTENT_CAL) {
+#endif /* OPLUS_ARCH_EXTENDS */
 			audproc_cal_info = cal_block->cal_info;
 			if ((audproc_cal_info->path == path) &&
 			    (audproc_cal_info->app_type == app_type) &&
@@ -2348,6 +2375,11 @@ static void send_adm_cal(int port_id, int copp_idx, int path, int perf_mode,
 	if (passthr_mode != LISTEN) {
 		send_adm_cal_type(ADM_AUDPROC_CAL, path, port_id, copp_idx,
 				perf_mode, app_type, acdb_id, sample_rate);
+#ifdef OPLUS_ARCH_EXTENDS
+		send_adm_cal_type(ADM_AUDPROC_PERSISTENT_CAL, path,
+				  port_id, copp_idx, perf_mode, app_type,
+				  acdb_id, sample_rate);
+#endif /* OPLUS_ARCH_EXTENDS */
 	} else {
 		send_adm_cal_type(ADM_LSM_AUDPROC_CAL, path, port_id, copp_idx,
 				  perf_mode, app_type, acdb_id, sample_rate);
@@ -2834,8 +2866,22 @@ static int adm_arrange_mch_ep2_map_v8(
  *
  * Returns 0 on success or error on failure
  */
+
+#ifdef OPLUS_FEATURE_KTV
+#define AUDIO_TOPOLOGY_KTV    0x10001080
+#endif /* OPLUS_FEATURE_KTV */
+
+#ifdef OPLUS_ARCH_EXTENDS
+#define VOICE_TOPOLOGY_LVIMFQ_TX_DM    0x1000BFF5
+#endif /* OPLUS_ARCH_EXTENDS */
+#ifdef OPLUS_ARCH_EXTENDS
+int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
+	     int perf_mode, uint16_t bit_width, int app_type, int acdb_id,
+	     int session_type)
+#else /* OPLUS_ARCH_EXTENDS */
 int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	     int perf_mode, uint16_t bit_width, int app_type, int acdb_id)
+#endif /* OPLUS_ARCH_EXTENDS */
 {
 	struct adm_cmd_device_open_v5	open;
 	struct adm_cmd_device_open_v6	open_v6;
@@ -2918,11 +2964,29 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			rate = 16000;
 	}
 
+	#ifdef OPLUS_ARCH_EXTENDS
+	if ((topology == VOICE_TOPOLOGY_LVIMFQ_TX_DM)
+		&& (rate != ADM_CMD_COPP_OPEN_SAMPLE_RATE_48K)) {
+		pr_info("%s: Change rate %d to 48K for copp 0x%x",
+			__func__, rate, topology);
+		rate = 48000;
+	}
+	#endif /* OPLUS_ARCH_EXTENDS */
+
 	if (topology == FFECNS_TOPOLOGY) {
 		this_adm.ffecns_port_id = port_id;
 		pr_debug("%s: ffecns port id =%x\n", __func__,
 				this_adm.ffecns_port_id);
 	}
+
+#ifdef OPLUS_FEATURE_KTV
+	if ((topology == AUDIO_TOPOLOGY_KTV)
+			&& (rate != ADM_CMD_COPP_OPEN_SAMPLE_RATE_48K)) {
+			pr_info("%s: Change rate %d to 48K for copp 0x%x",
+					__func__, rate, topology);
+			rate = 48000;
+	}
+#endif /* OPLUS_FEATURE_KTV */
 
 	if (topology == VPM_TX_VOICE_SMECNS_V2_COPP_TOPOLOGY)
 		channel_mode = 1;
@@ -2933,10 +2997,17 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	 * This isn't allowed for ULL streams as per the DSP interface
 	 */
 	if (perf_mode != ULTRA_LOW_LATENCY_PCM_MODE)
+#ifdef OPLUS_ARCH_EXTENDS
 		copp_idx = adm_get_idx_if_copp_exists(port_idx, topology,
 						      perf_mode,
 						      rate, bit_width,
-						      app_type);
+						      app_type, session_type);
+#else /* OPLUS_ARCH_EXTENDS */
+		copp_idx = adm_get_idx_if_copp_exists(port_idx, topology,
+							  perf_mode,
+							  rate, bit_width,
+							  app_type);
+#endif /* OPLUS_ARCH_EXTENDS */
 
 	if (copp_idx < 0) {
 		copp_idx = adm_get_next_available_copp(port_idx);
@@ -2960,6 +3031,10 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			   app_type);
 		atomic_set(&this_adm.copp.acdb_id[port_idx][copp_idx],
 			   acdb_id);
+#ifdef OPLUS_ARCH_EXTENDS
+		atomic_set(&this_adm.copp.session_type[port_idx][copp_idx],
+			session_type);
+#endif /* OPLUS_ARCH_EXTENDS */
 		set_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 		(void *)&this_adm.copp.adm_status[port_idx][copp_idx]);
 		if ((path != ADM_PATH_COMPRESSED_RX) &&
@@ -3139,9 +3214,16 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			open.endpoint_id_1 = tmp_port;
 			open.endpoint_id_2 = 0xFFFF;
 
+#ifdef OPLUS_ARCH_EXTENDS
+			if (this_adm.ec_ref_rx && (path != 1) &&
+				(afe_get_port_type(tmp_port) == MSM_AFE_PORT_TYPE_TX)) {
+				open.endpoint_id_2 = this_adm.ec_ref_rx;
+			}
+#else /* OPLUS_ARCH_EXTENDS */
 			if (this_adm.ec_ref_rx && (path != 1)) {
 				open.endpoint_id_2 = this_adm.ec_ref_rx;
 			}
+#endif /* OPLUS_ARCH_EXTENDS */
 
 			open.topology_id = topology;
 
@@ -3667,6 +3749,9 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 		atomic_set(&this_adm.copp.channels[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.bit_width[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.app_type[port_idx][copp_idx], 0);
+#ifdef OPLUS_ARCH_EXTENDS
+		atomic_set(&this_adm.copp.session_type[port_idx][copp_idx], 0);
+#endif /* OPLUS_ARCH_EXTENDS */
 
 		clear_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 			(void *)&this_adm.copp.adm_status[port_idx][copp_idx]);
@@ -3902,6 +3987,11 @@ static int get_cal_type_index(int32_t cal_type)
 	case ADM_LSM_AUDPROC_PERSISTENT_CAL_TYPE:
 		ret = ADM_LSM_AUDPROC_PERSISTENT_CAL;
 		break;
+#ifdef OPLUS_ARCH_EXTENDS
+	case ADM_AUDPROC_PERSISTENT_CAL_TYPE:
+		ret = ADM_AUDPROC_PERSISTENT_CAL;
+		break;
+#endif /* OPLUS_ARCH_EXTENDS */
 	default:
 		pr_err("%s: invalid cal type %d!\n", __func__, cal_type);
 	}
@@ -4129,6 +4219,14 @@ static int adm_init_cal_data(void)
 		  adm_set_cal, NULL, NULL} },
 		 {adm_map_cal_data, adm_unmap_cal_data,
 		  cal_utils_match_buf_num} },
+
+#ifdef OPLUS_ARCH_EXTENDS
+		{{ADM_AUDPROC_PERSISTENT_CAL_TYPE,
+		 {adm_alloc_cal, adm_dealloc_cal, NULL,
+		  adm_set_cal, NULL, NULL} },
+		 {adm_map_cal_data, adm_unmap_cal_data,
+		  cal_utils_match_buf_num} },
+#endif /* OPLUS_ARCH_EXTENDS */
 	};
 	pr_debug("%s:\n", __func__);
 
@@ -4182,6 +4280,53 @@ int adm_set_volume(int port_id, int copp_idx, int volume)
 	return rc;
 }
 EXPORT_SYMBOL(adm_set_volume);
+
+#ifdef OPLUS_FEATURE_KTV
+int  adm_set_reverb_param(int port_id, int copp_idx, int32_t* params)
+{
+	struct audproc_revert_param audproc_param;
+	struct param_hdr_v3 param_hdr;
+	int rc  = 0;
+
+	pr_debug("%s, portid %d, copp idx %d\n", __func__, port_id, copp_idx);
+
+	memset(&audproc_param, 0, sizeof(audproc_param));
+	memset(&param_hdr, 0, sizeof(param_hdr));
+	param_hdr.module_id = 0x10001081;
+	param_hdr.instance_id = 0x8000;
+	param_hdr.param_id = 0x10001082;
+	param_hdr.param_size = sizeof(audproc_param);
+
+	audproc_param.mode = params[0];
+	audproc_param.volume = params[1];
+	audproc_param.peg = params[2];
+	audproc_param.pitchange = params[3];
+	audproc_param.reverbparam= params[4];
+	audproc_param.enabled= params[5];
+	audproc_param.reverved0 = params[6];
+	audproc_param.reverved1 = params[7];
+	audproc_param.reverved2 = params[8];
+	audproc_param.reverved3 = params[9];
+	audproc_param.reverved4 = params[10];
+	audproc_param.reverved5 = params[11];
+	audproc_param.reverved6 = params[12];
+	audproc_param.reverved7 = params[13];
+	audproc_param.reverved8 = params[14];
+	audproc_param.reverved9 = params[15];
+	audproc_param.reverved10 = params[16];
+	audproc_param.reverved11 = params[17];
+	audproc_param.reverved12 = params[18];
+	audproc_param.reverved13 = params[19];
+
+	rc = adm_pack_and_set_one_pp_param(port_id, copp_idx, param_hdr,
+					   (uint8_t *) &audproc_param);
+	if (rc)
+		pr_err("%s: Failed to set volume, err %d\n", __func__, rc);
+
+	return rc;
+}
+EXPORT_SYMBOL(adm_set_reverb_param);
+#endif /* OPLUS_FEATURE_KTV */
 
 /**
  * adm_set_softvolume -
@@ -4647,6 +4792,15 @@ int adm_store_cal_data(int port_id, int copp_idx, int path, int perf_mode,
 			rc = -ENOMEM;
 			goto unlock;
 		}
+#ifdef OPLUS_ARCH_EXTENDS
+	} else if (cal_index == ADM_AUDPROC_PERSISTENT_CAL) {
+		if (cal_block->cal_data.size > AUD_PROC_PERSIST_BLOCK_SIZE) {
+			pr_err("%s:persist invalid size exp/actual[%zd, %d]\n",
+				__func__, cal_block->cal_data.size, *size);
+			rc = -ENOMEM;
+			goto unlock;
+		}
+#endif /* OPLUS_ARCH_EXTENDS */
 	} else if (cal_index == ADM_AUDVOL_CAL) {
 		if (cal_block->cal_data.size > AUD_VOL_BLOCK_SIZE) {
 			pr_err("%s:aud_vol:invalid size exp/actual[%zd, %d]\n",

@@ -640,6 +640,10 @@ config AUDIO_SENSOR
 #endif
 endmenu
 
+config AUDIO_SENSOR
+	    tristate "support sensor notify audio to control ultrasound"
+	    default y
+
 config OKL4_USER_VIPC
 	bool "OKL4 Virtual Platform IPC Driver"
 	depends on OKL4_GUEST
