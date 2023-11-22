@@ -77,3 +77,10 @@ ifeq ($(call is-board-platform-in-list,msmnile),true)
 $(shell rm -rf $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd9360/Module.symvers)
 include $(MY_LOCAL_PATH)/asoc/codecs/wcd9360/Android.mk
 endif
+
+#ifdef OPLUS_ARCH_EXTENDS
+ifeq ($(call is-board-platform-in-list,msmnile),true)
+$(shell rm -rf $(PRODUCT_OUT)/obj/vendor/qcom/opensource/audio-kernel/asoc/codecs/tfa9894/Module.symvers)
+include $(MY_LOCAL_PATH)/asoc/codecs/tfa9894/Android.mk
+endif
+#endif /* OPLUS_ARCH_EXTENDS */
