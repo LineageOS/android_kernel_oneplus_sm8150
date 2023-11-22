@@ -545,6 +545,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 
 	conn = phys_enc->connector;
 	sde_conn = to_sde_connector(conn);
+
 	cmd_enc->pp_timeout_report_cnt++;
 	pending_kickoff_cnt = atomic_read(&phys_enc->pending_kickoff_cnt);
 

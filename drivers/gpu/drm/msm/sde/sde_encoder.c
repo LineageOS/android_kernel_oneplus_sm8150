@@ -39,6 +39,11 @@
 #include "sde_core_irq.h"
 #include "sde_hw_top.h"
 #include "sde_hw_qdss.h"
+#ifdef OPLUS_BUG_STABILITY
+#include "oplus_display_private_api.h"
+#include "oplus_onscreenfingerprint.h"
+#include "oplus_dc_diming.h"
+#endif /* OPLUS_BUG_STABILITY */
 
 #define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
 		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
@@ -4299,7 +4304,10 @@ static void _sde_encoder_setup_dither(struct sde_encoder_phys *phys)
 			}
 		}
 	} else {
-		phys->hw_pp->ops.setup_dither(phys->hw_pp, dither_cfg, len);
+//#ifdef OPLUS_BUG_STABILITY
+		if (_sde_encoder_setup_dither_for_onscreenfingerprint(phys, dither_cfg, len))
+			phys->hw_pp->ops.setup_dither(phys->hw_pp, dither_cfg, len);
+//#endif /* OPLUS_BUG_STABILITY */
 	}
 }
 
@@ -4671,6 +4679,13 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
 
+#ifdef OPLUS_BUG_STABILITY
+	if (sde_enc->cur_master) {
+		sde_connector_update_backlight(sde_enc->cur_master->connector, false);
+		sde_connector_update_hbm(sde_enc->cur_master->connector);
+	}
+#endif /* OPLUS_BUG_STABILITY */
+
 	/* save this for later, in case of errors */
 	if (sde_enc->cur_master && sde_enc->cur_master->ops.get_wr_line_count)
 		ln_cnt1 = sde_enc->cur_master->ops.get_wr_line_count(
@@ -4839,6 +4854,10 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool is_error)
 	}
 
 	SDE_ATRACE_END("encoder_kickoff");
+
+#ifdef OPLUS_BUG_STABILITY
+   sde_connector_update_backlight(sde_enc->cur_master->connector, true);
+#endif /* OPLUS_BUG_STABILITY */
 }
 
 int sde_encoder_helper_reset_mixers(struct sde_encoder_phys *phys_enc,

@@ -441,6 +441,11 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 			 display->is_cont_splash_enabled))
 			dsi_mode.dsi_mode_flags |= DSI_MODE_FLAG_DMS;
 
+#ifdef OPLUS_BUG_STABILITY
+		if (display->is_cont_splash_enabled)
+			dsi_mode.dsi_mode_flags &= ~DSI_MODE_FLAG_DMS;
+#endif /* OPLUS_BUG_STABILITY */
+
 		/* Reject seemless transition when active/connectors changed.*/
 		if ((crtc_state->active_changed ||
 			(crtc_state->connectors_changed && clone_mode)) &&

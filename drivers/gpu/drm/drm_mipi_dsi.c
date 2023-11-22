@@ -1045,6 +1045,14 @@ int mipi_dsi_dcs_set_tear_scanline(struct mipi_dsi_device *dsi, u16 scanline)
 }
 EXPORT_SYMBOL(mipi_dsi_dcs_set_tear_scanline);
 
+/*add for solve backlight issue for hbm*/
+u32 flag_writ = 0;
+EXPORT_SYMBOL(flag_writ);
+u32 flag_last_reg_update = 0;
+extern int oplus_dsi_hbm_backlight_setting(bool enabled);
+extern int cmp_display_panel_name(char *istr);
+extern int fod_dimlayer_flag;
+
 /**
  * mipi_dsi_dcs_set_display_brightness() - sets the brightness value of the
  *    display
@@ -1056,14 +1064,74 @@ EXPORT_SYMBOL(mipi_dsi_dcs_set_tear_scanline);
 int mipi_dsi_dcs_set_display_brightness(struct mipi_dsi_device *dsi,
 					u16 brightness)
 {
-	u8 payload[2] = { brightness & 0xff, brightness >> 8 };
+	//Add for fix 10bit Backlight
+	//u8 payload[2] = { brightness & 0xff, brightness >> 8 };
+	/*Decoupling for SOFEF03F_M */
+	u8 payload[2];
 	ssize_t err;
 
-	err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
-				 payload, sizeof(payload));
-	if (err < 0)
-		return err;
+	/*Decoupling for SOFEF03F_M */
+	/* panels other than SOFEF03F and OP7 models*/
+	if (!cmp_display_panel_name("SOFEF03F_M") && !cmp_display_panel_name("SOFEF03F") &&
+	    !cmp_display_panel_name("S6E3FC2") && !cmp_display_panel_name("S6E3HC2")) {
+		payload[0] = brightness >> 8;
+		payload[1] = brightness & 0xff;
 
+		err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+			payload, sizeof(payload));
+		if (err < 0)
+			return err;
+	} else {
+		/* for SOFEF03F panel and OP7 models*/
+		u8  value;
+		u16 hbm_brightness;
+
+		if(brightness > 1023){
+			value = 0xE0;
+			if (cmp_display_panel_name("S6E3HC2"))
+				hbm_brightness =  brightness + 2048;
+			else
+				hbm_brightness =  brightness;
+
+			payload[0] = hbm_brightness >> 8;
+			payload[1] = hbm_brightness & 0xff;
+			if(flag_writ == 0 || flag_writ == 3){
+				oplus_dsi_hbm_backlight_setting(true);
+				if(cmp_display_panel_name("SOFEF03F_M"))
+					mipi_dsi_dcs_write(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY,
+							   &value, sizeof(value));
+				flag_writ = 2;
+				pr_info("dsi_cmd hbm_brightness: %d\n", hbm_brightness);
+			}
+			err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+						 payload, sizeof(payload));
+			if (err < 0)
+				return err;
+		} else {
+			value = 0x20;
+			payload[0] =  brightness >> 8;
+			payload[1] =  brightness & 0xff;
+			err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+						 payload, sizeof(payload));
+			if(flag_writ == 2 || flag_writ == 3){
+				if(cmp_display_panel_name("SOFEF03F_M"))
+					mipi_dsi_dcs_write(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY,
+							   &value, sizeof(value));
+				if(brightness > 1) {
+					/*For 18821 and 19801 models don't send 'qcom,mdss-dsi-hbm-backlight-off-command'*/
+					/*while disabling dimlayer after fod scene*/
+					if(cmp_display_panel_name("S6E3HC2") && fod_dimlayer_flag == 0)
+						fod_dimlayer_flag = -1;
+					else
+						oplus_dsi_hbm_backlight_setting(false);
+				}
+				flag_writ = 0;
+				pr_info("dsi_cmd hbm_brightness_off brightness: %d\n", brightness);
+			}
+			if (err < 0)
+				return err;
+		}
+	}
 	return 0;
 }
 EXPORT_SYMBOL(mipi_dsi_dcs_set_display_brightness);
@@ -1094,57 +1162,19 @@ int mipi_dsi_dcs_get_display_brightness(struct mipi_dsi_device *dsi,
 }
 EXPORT_SYMBOL(mipi_dsi_dcs_get_display_brightness);
 
-/**
- * mipi_dsi_dcs_set_display_brightness_large() - sets the 16-bit brightness value
- *    of the display
- * @dsi: DSI peripheral device
- * @brightness: brightness value
- *
- * Return: 0 on success or a negative error code on failure.
- */
-int mipi_dsi_dcs_set_display_brightness_large(struct mipi_dsi_device *dsi,
-					     u16 brightness)
+int mipi_dsi_dcs_write_c1(struct mipi_dsi_device *dsi,
+			u16 read_number)
 {
-	u8 payload[2] = { brightness >> 8, brightness & 0xff };
+	u8 payload[3] = {0x0A, read_number >> 8, read_number & 0xff};
 	ssize_t err;
 
-	err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
-				 payload, sizeof(payload));
+	err = mipi_dsi_dcs_write(dsi, 0xC1,payload, sizeof(payload));
 	if (err < 0)
 		return err;
 
 	return 0;
 }
-EXPORT_SYMBOL(mipi_dsi_dcs_set_display_brightness_large);
-
-/**
- * mipi_dsi_dcs_get_display_brightness_large() - gets the current 16-bit
- *    brightness value of the display
- * @dsi: DSI peripheral device
- * @brightness: brightness value
- *
- * Return: 0 on success or a negative error code on failure.
- */
-int mipi_dsi_dcs_get_display_brightness_large(struct mipi_dsi_device *dsi,
-					     u16 *brightness)
-{
-	u8 brightness_be[2];
-	ssize_t err;
-
-	err = mipi_dsi_dcs_read(dsi, MIPI_DCS_GET_DISPLAY_BRIGHTNESS,
-				brightness_be, sizeof(brightness_be));
-	if (err <= 0) {
-		if (err == 0)
-			err = -ENODATA;
-
-		return err;
-	}
-
-	*brightness = (brightness_be[0] << 8) | brightness_be[1];
-
-	return 0;
-}
-EXPORT_SYMBOL(mipi_dsi_dcs_get_display_brightness_large);
+EXPORT_SYMBOL(mipi_dsi_dcs_write_c1);
 
 static int mipi_dsi_drv_probe(struct device *dev)
 {
