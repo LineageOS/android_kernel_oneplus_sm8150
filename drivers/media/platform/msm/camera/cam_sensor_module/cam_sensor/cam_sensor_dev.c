@@ -15,6 +15,14 @@
 #include "cam_sensor_soc.h"
 #include "cam_sensor_core.h"
 
+static struct wakeup_source *cam_clk_ws;
+#define CAM_CLK_WS_TIMEOUT 2000
+
+void cam_request_timeout_ws(void)
+{
+	__pm_wakeup_event(cam_clk_ws, CAM_CLK_WS_TIMEOUT);
+}
+
 static long cam_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
@@ -275,6 +283,7 @@ static int32_t cam_sensor_driver_platform_probe(
 	int32_t rc = 0, i = 0;
 	struct cam_sensor_ctrl_t *s_ctrl = NULL;
 	struct cam_hw_soc_info *soc_info = NULL;
+	static bool cam_clk_ws_flag = true;
 
 	/* Create sensor control structure */
 	s_ctrl = devm_kzalloc(&pdev->dev,
@@ -337,6 +346,11 @@ static int32_t cam_sensor_driver_platform_probe(
 	s_ctrl->sensordata->power_info.dev = &pdev->dev;
 	platform_set_drvdata(pdev, s_ctrl);
 	s_ctrl->sensor_state = CAM_SENSOR_INIT;
+
+	if (cam_clk_ws_flag) {
+		cam_clk_ws = wakeup_source_register(NULL, "cam_clk");
+		cam_clk_ws_flag = false;
+	}
 
 	return rc;
 unreg_subdev:
