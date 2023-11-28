@@ -59,6 +59,23 @@
 #include "braille.h"
 #include "internal.h"
 
+#include <soc/oplus/boot_mode.h>
+static bool __read_mostly printk_disable_uart = true; /*set true avoid early console output*/
+static int __init printk_uart_disabled(char *str)
+{
+	if (str[0] == '1')
+		printk_disable_uart = true;
+	else
+		printk_disable_uart = false;
+	return 0;
+}
+early_param("printk.disable_uart", printk_uart_disabled);
+
+bool oem_disable_uart(void)
+{
+	return printk_disable_uart;
+}
+
 #ifdef CONFIG_EARLY_PRINTK_DIRECT
 extern void printascii(char *);
 #endif
@@ -1716,6 +1733,12 @@ static void call_console_drivers(const char *ext_text, size_t ext_len,
 		return;
 
 	for_each_console(con) {
+		if ((con->flags & CON_CONSDEV) &&
+				(printk_disable_uart ||
+				get_boot_mode() == MSM_BOOT_MODE__FACTORY ||
+				get_boot_mode() == MSM_BOOT_MODE__RF ||
+				get_boot_mode() == MSM_BOOT_MODE__WLAN))
+			continue;
 		if (exclusive_console && con != exclusive_console)
 			continue;
 		if (!(con->flags & CON_ENABLED))
