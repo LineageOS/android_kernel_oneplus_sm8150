@@ -193,6 +193,9 @@ config INPUT_QTI_HAPTICS
 	  is capable of driving both LRA and ERM vibrators.  This module provides
 	  haptic feedback for user actions such as a long press on the touch screen.
 
+config OPLUS_HAPTIC_OOS
+	bool "OnePlus OOS Haptic modifications"
+
 config INPUT_SPARCSPKR
 	tristate "SPARC Speaker support"
 	depends on PCI && SPARC64
