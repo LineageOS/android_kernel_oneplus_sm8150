@@ -16,6 +16,23 @@
       "message": "that\u0027s definitely valid. i wonder how it ever compiled before? never tried this branch, but PHYSICAL_ANTI_FRAGMENTATION is on by default and OPLUS_FEATURE_MULTI_FREEAREA is enabled in oneplus\u0027 makefile...",
       "revId": "6b02d59f6110c69f334ea2ca8d0b56923e6b257b",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "e0ee0a31_53c246c1",
+        "filename": "mm/page_alloc.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 2774,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2023-12-07T15:25:31Z",
+      "side": 1,
+      "message": "that\u0027s because CONFIG_HIBERNATION is not enabled.",
+      "revId": "6b02d59f6110c69f334ea2ca8d0b56923e6b257b",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
