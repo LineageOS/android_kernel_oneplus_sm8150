@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "8019b68b_eb19230b",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 5911
+      },
+      "writtenOn": "2023-12-07T14:19:54Z",
+      "side": 1,
+      "message": "that\u0027s definitely valid. i wonder how it ever compiled before? never tried this branch, but PHYSICAL_ANTI_FRAGMENTATION is on by default and OPLUS_FEATURE_MULTI_FREEAREA is enabled in oneplus\u0027 makefile...",
+      "revId": "6b02d59f6110c69f334ea2ca8d0b56923e6b257b",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
