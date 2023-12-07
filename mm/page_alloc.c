@@ -2814,7 +2814,7 @@ void mark_free_pages(struct zone *zone)
 #if defined(OPLUS_FEATURE_MULTI_FREEAREA) && defined(CONFIG_PHYSICAL_ANTI_FRAGMENTATION)
         for (flc = 0; flc < FREE_AREA_COUNTS; flc++) {
 		    list_for_each_entry(page,
-				    &zone->free_areai[flc][order].free_list[t], lru) {
+				    &zone->free_area[flc][order].free_list[t], lru) {
 #else
 		list_for_each_entry(page,
 				&zone->free_area[order].free_list[t], lru) {
