@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "7eeb4c64_e2bab7ab",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2023-12-08T09:39:19Z",
+      "side": 1,
+      "message": "not sure if I\u0027m gonna bother cherry-picking to 21 when that branch will probably be force pushed with new kernel base soon (TM)",
+      "revId": "2947e6b4dc5f778307b138cd382db103419c4bcb",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
