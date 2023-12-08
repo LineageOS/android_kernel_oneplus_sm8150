@@ -35,6 +35,24 @@
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     },
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "82336efd_a3872c84",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 27021
+      },
+      "writtenOn": "2023-12-08T07:50:07Z",
+      "side": 1,
+      "message": "that is really weird tbh. I build on that branch since some months but suddenly got this compile error. I cannot rule out that something else changed on my site so it suddenly walked into this condition now but I found nothing related. checked defconfig and anything which came into my mind. well..",
+      "parentUuid": "8019b68b_eb19230b",
+      "revId": "6b02d59f6110c69f334ea2ca8d0b56923e6b257b",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "e0ee0a31_53c246c1",
@@ -48,6 +66,24 @@
       "writtenOn": "2023-12-07T15:25:31Z",
       "side": 1,
       "message": "that\u0027s because CONFIG_HIBERNATION is not enabled.",
+      "revId": "6b02d59f6110c69f334ea2ca8d0b56923e6b257b",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "47e507c8_f3197e11",
+        "filename": "mm/page_alloc.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 2774,
+      "author": {
+        "id": 27021
+      },
+      "writtenOn": "2023-12-08T07:50:07Z",
+      "side": 1,
+      "message": "ah well yea here it is enabled. so thats why it happens. I was testing if that has any effect a while ago, still wondering why it happens now first but as said: could be my env..",
+      "parentUuid": "e0ee0a31_53c246c1",
       "revId": "6b02d59f6110c69f334ea2ca8d0b56923e6b257b",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
