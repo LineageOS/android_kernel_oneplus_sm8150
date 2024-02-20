@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "78b7f078_33e0e97a",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 9760
+      },
+      "writtenOn": "2024-02-20T10:11:22Z",
+      "side": 1,
+      "message": "Yes. It works well now. During at least 5 minutes of mode switching, I was still unable to freeze the phone or get any Aperture/GCam camera error.",
+      "revId": "364c7fe3bd4bf5e350deaf5c3be7f71103a52e1a",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
