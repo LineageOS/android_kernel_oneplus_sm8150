@@ -33,6 +33,24 @@
       "message": "I\u0027d do\nelse goto end;",
       "revId": "364c7fe3bd4bf5e350deaf5c3be7f71103a52e1a",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "e0783e2b_51f158c3",
+        "filename": "drivers/media/platform/msm/camera/cam_isp/cam_isp_context.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 1166,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2024-02-20T11:08:22Z",
+      "side": 1,
+      "message": "eh, I don\u0027t know what is more correct here as oplus just replaced trace below with CAM_DBG() that doesn\u0027t even use `req`.",
+      "parentUuid": "39d0f995_aee8235f",
+      "revId": "364c7fe3bd4bf5e350deaf5c3be7f71103a52e1a",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
