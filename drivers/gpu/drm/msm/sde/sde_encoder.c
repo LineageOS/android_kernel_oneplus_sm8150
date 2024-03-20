@@ -5942,6 +5942,10 @@ void sde_encoder_trigger_early_wakeup(struct drm_encoder *drm_enc)
 		return;
 	}
 
+	if (sde_encoder_get_intf_mode(drm_enc) != INTF_MODE_CMD) {
+		return;
+	}
+
 	SDE_ATRACE_BEGIN("sde_encoder_resource_control");
 	if (sde_enc->rc_state == SDE_ENC_RC_STATE_IDLE) {
 		sde_encoder_resource_control(drm_enc,
