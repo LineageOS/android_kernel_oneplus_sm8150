@@ -59,8 +59,7 @@ do {                                                           \
 	#endif /* TX_PER_VDEV_DESC_POOL */
 #endif /* TX_PER_PDEV_DESC_POOL */
 #define DP_TX_QUEUE_MASK 0x3
-#define DP_TX_MSDU_INFO_META_DATA_DWORDS 7
-
+#define DP_TX_MSDU_INFO_META_DATA_DWORDS 9
 
 /**
  * struct dp_tx_frag_info_s

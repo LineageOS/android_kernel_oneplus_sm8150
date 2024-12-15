@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, 2019, 2021 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -297,6 +297,8 @@ static struct notifier_block restart_notifier = {
 };
 static int in_global_reset;
 /* end subsystem restart */
+
+static int ssr_skipped_reconnect;
 
 #define bam_ch_is_open(x)						\
 	(bam_ch[(x)].status == (BAM_CH_LOCAL_OPEN | BAM_CH_REMOTE_OPEN))
@@ -2000,6 +2002,7 @@ static void reconnect_to_bam(void)
 	int i;
 
 	if (in_global_reset) {
+		ssr_skipped_reconnect = 1;
 		BAM_DMUX_LOG("%s: skipping due to SSR\n", __func__);
 		return;
 	}
@@ -2053,7 +2056,7 @@ static void disconnect_to_bam(void)
 	unsigned long flags;
 	unsigned long time_remaining;
 
-	if (!in_global_reset) {
+	if (!in_global_reset && !ssr_skipped_reconnect) {
 		time_remaining = wait_for_completion_timeout(
 				&shutdown_completion,
 				msecs_to_jiffies(SHUTDOWN_TIMEOUT_MS));
@@ -2108,6 +2111,7 @@ static void disconnect_to_bam(void)
 	mutex_unlock(&bam_rx_pool_mutexlock);
 	toggle_apps_ack();
 	verify_tx_queue_is_empty(__func__);
+	ssr_skipped_reconnect = 0;
 }
 
 static void vote_dfab(void)
@@ -2245,6 +2249,8 @@ static int restart_notifier_cb(struct notifier_block *this,
 	process_dynamic_mtu(false);
 	set_ul_mtu(0, true);
 	dynamic_mtu_enabled = false;
+	if (bam_connection_is_active)
+		ssr_skipped_reconnect = 1;
 
 	/* Cleanup Channel States */
 	mutex_lock(&bam_pdev_mutexlock);
@@ -2470,7 +2476,7 @@ static void toggle_apps_ack(void)
 {
 	static unsigned int clear_bit; /* 0 = set the bit, else clear bit */
 
-	if (in_global_reset) {
+	if (in_global_reset || ssr_skipped_reconnect) {
 		BAM_DMUX_LOG("%s: skipped due to SSR\n", __func__);
 		return;
 	}
