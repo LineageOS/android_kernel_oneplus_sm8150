@@ -667,7 +667,7 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			mbhc->jiffies_atreport = jiffies;
 		} else if (jack_type == SND_JACK_LINEOUT) {
 			mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
-		else {
+		} else {
 			pr_debug("%s: invalid Jack type %d\n",__func__, jack_type);
 		}
 
