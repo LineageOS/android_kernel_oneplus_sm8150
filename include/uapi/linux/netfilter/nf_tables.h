@@ -779,6 +779,7 @@ enum nft_exthdr_attributes {
  * @NFT_META_OIFGROUP: packet output interface group
  * @NFT_META_CGROUP: socket control group (skb->sk->sk_classid)
  * @NFT_META_PRANDOM: a 32bit pseudo-random number
+ * @NFT_META_SECPATH: boolean, secpath_exists (!!skb->sp)
  */
 enum nft_meta_keys {
 	NFT_META_LEN,
@@ -806,6 +807,7 @@ enum nft_meta_keys {
 	NFT_META_OIFGROUP,
 	NFT_META_CGROUP,
 	NFT_META_PRANDOM,
+	NFT_META_SECPATH,
 };
 
 /**
@@ -887,6 +889,31 @@ enum nft_rt_attributes {
 	__NFTA_RT_MAX
 };
 #define NFTA_RT_MAX		(__NFTA_RT_MAX - 1)
+
+/**
+ * enum nft_socket_attributes - nf_tables socket expression netlink attributes
+ *
+ * @NFTA_SOCKET_KEY: socket key to match
+ * @NFTA_SOCKET_DREG: destination register
+ */
+enum nft_socket_attributes {
+	NFTA_SOCKET_UNSPEC,
+	NFTA_SOCKET_KEY,
+	NFTA_SOCKET_DREG,
+	__NFTA_SOCKET_MAX
+};
+#define NFTA_SOCKET_MAX		(__NFTA_SOCKET_MAX - 1)
+
+/*
+ * enum nft_socket_keys - nf_tables socket expression keys
+ *
+ * @NFT_SOCKET_TRANSPARENT: Value of the IP(V6)_TRANSPARENT socket option_
+ */
+enum nft_socket_keys {
+	NFT_SOCKET_TRANSPARENT,
+	__NFT_SOCKET_MAX
+};
+#define NFT_SOCKET_MAX	(__NFT_SOCKET_MAX - 1)
 
 /**
  * enum nft_ct_keys - nf_tables ct expression keys
