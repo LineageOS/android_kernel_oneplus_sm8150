@@ -7947,18 +7947,22 @@ int dsi_display_update_pps(char *pps_cmd, void *disp)
 
 int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel *panel)
 {
+	struct gamma_para_data {
+		char fb[13];
+		char b3[47];
+		char fb_temp[13];
+		char c8_temp[135];
+		char c9_temp[180];
+		char b3_temp[47];
+		char gamma_para_60hz[452];
+		char gamma_para_backup[413];
+	};
+
 	int i = 0;
 	int j = 0;
 	int rc = 0;
 	int flags = 0;
-	char fb[13] = {0};
-	char b3[47] = {0};
-	char fb_temp[13] = {0};
-	char c8_temp[135] = {0};
-	char c9_temp[180] = {0};
-	char b3_temp[47] = {0};
-	char gamma_para_60hz[452] = {0};
-	char gamma_para_backup[413] = {0};
+	struct gamma_para_data *data;
 	int check_sum_60hz = 0;
 
 	struct dsi_cmd_desc *cmds;
@@ -7975,11 +7979,13 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 		return -EINVAL;
 	}
 
+	data = kzalloc(sizeof(struct gamma_para_data), GFP_KERNEL);
+
 	dsi_panel_acquire_panel_lock(panel);
 	mode = panel->cur_mode;
 
 	/* Read 60hz gamma para */
-	memcpy(gamma_para_backup, gamma_para[0], 413);
+	memcpy(data->gamma_para_backup, gamma_para[0], 413);
 	do {
 		check_sum_60hz = 0;
 		if (j > 0) {
@@ -8027,14 +8033,14 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 			if (!m_ctrl->ctrl->vaddr)
 				goto error;
 
-			cmds->msg.rx_buf = fb_temp;
+			cmds->msg.rx_buf = data->fb_temp;
 			cmds->msg.rx_len = 13;
 			rc = dsi_ctrl_cmd_transfer(m_ctrl->ctrl, &cmds->msg, flags);
 			if (rc <= 0) {
 				pr_err("Failed to read DSI_CMD_SET_GAMMA_FLASH_READ_FB\n");
 				goto error;
 			}
-			memcpy(fb, cmds->msg.rx_buf, 13);
+			memcpy(data->fb, cmds->msg.rx_buf, 13);
 
 			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_LEVEL2_KEY_DISABLE);
 			if (rc) {
@@ -8043,30 +8049,30 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 			}
 
 			if (i < 135) {
-				gamma_para[0][i+18] = fb[12];
+				gamma_para[0][i+18] = data->fb[12];
 			}
 			else if (i < 315) {
-				gamma_para[0][i+26] = fb[12];
+				gamma_para[0][i+26] = data->fb[12];
 			}
 			else if (i < 360) {
-				gamma_para[0][i+43] = fb[12];
+				gamma_para[0][i+43] = data->fb[12];
 			}
 
-			gamma_para_60hz[i] = fb[12];
+			data->gamma_para_60hz[i] = data->fb[12];
 			if (i < 449) {
-			check_sum_60hz = gamma_para_60hz[i] + check_sum_60hz;
+			check_sum_60hz = data->gamma_para_60hz[i] + check_sum_60hz;
 			}
 			j++;
 		}
 	}
-	while ((check_sum_60hz != (gamma_para_60hz[450] << 8) + gamma_para_60hz[451]) && (j < 10));
+	while ((check_sum_60hz != (data->gamma_para_60hz[450] << 8) + data->gamma_para_60hz[451]) && (j < 10));
 
-	if (check_sum_60hz == (gamma_para_60hz[450] << 8) + gamma_para_60hz[451]) {
+	if (check_sum_60hz == (data->gamma_para_60hz[450] << 8) + data->gamma_para_60hz[451]) {
 		pr_info("Read 60hz gamma done\n");
 	}
 	else {
 		pr_err("Failed to read 60hz gamma, use default 60hz gamma.\n");
-		memcpy(gamma_para[0], gamma_para_backup, 413);
+		memcpy(gamma_para[0], data->gamma_para_backup, 413);
 		gamma_read_flag = GAMMA_READ_ERROR;
 	}
 
@@ -8090,7 +8096,7 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 		flags |= DSI_CTRL_CMD_LAST_COMMAND;
 	}
 	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
-	cmds->msg.rx_buf = c8_temp;
+	cmds->msg.rx_buf = data->c8_temp;
 	cmds->msg.rx_len = 135;
 	rc = dsi_ctrl_cmd_transfer(m_ctrl->ctrl, &cmds->msg, flags);
 	if (rc <= 0) {
@@ -8112,7 +8118,7 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 		flags |= DSI_CTRL_CMD_LAST_COMMAND;
 	}
 	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
-	cmds->msg.rx_buf = c9_temp;
+	cmds->msg.rx_buf = data->c9_temp;
 	cmds->msg.rx_len = 180;
 	rc = dsi_ctrl_cmd_transfer(m_ctrl->ctrl, &cmds->msg, flags);
 	if (rc <= 0) {
@@ -8134,15 +8140,15 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 		flags |= DSI_CTRL_CMD_LAST_COMMAND;
 	}
 	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
-	cmds->msg.rx_buf = b3_temp;
+	cmds->msg.rx_buf = data->b3_temp;
 	cmds->msg.rx_len = 47;
 	rc = dsi_ctrl_cmd_transfer(m_ctrl->ctrl, &cmds->msg, flags);
 	if (rc <= 0) {
 		pr_err("Failed to read DSI_CMD_SET_GAMMA_OTP_READ_B3\n");
 		goto error;
 	}
-	memcpy(b3, cmds->msg.rx_buf, 47);
-	memcpy(&gamma_para[1][358], &b3[2], 45);
+	memcpy(data->b3, cmds->msg.rx_buf, 47);
+	memcpy(&gamma_para[1][358], &data->b3[2], 45);
 
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_LEVEL2_KEY_DISABLE);
 	if (rc) {
@@ -8152,6 +8158,7 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 	pr_info("Read 90hz gamma done\n");
 
 error:
+	kfree(data);
 	dsi_panel_release_panel_lock(panel);
 	dsi_display_cmd_engine_disable(dsi_display);
 	return rc;
