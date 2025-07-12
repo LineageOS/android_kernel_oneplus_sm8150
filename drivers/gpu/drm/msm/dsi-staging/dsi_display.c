@@ -7951,12 +7951,9 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 	int j = 0;
 	int rc = 0;
 	int flags = 0;
+	char *rx_buf;
 	char fb[13] = {0};
 	char b3[47] = {0};
-	char fb_temp[13] = {0};
-	char c8_temp[135] = {0};
-	char c9_temp[180] = {0};
-	char b3_temp[47] = {0};
 	char gamma_para_60hz[452] = {0};
 	char gamma_para_backup[413] = {0};
 	int check_sum_60hz = 0;
@@ -7977,6 +7974,8 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 
 	dsi_panel_acquire_panel_lock(panel);
 	mode = panel->cur_mode;
+
+	rx_buf = kzalloc(180, GFP_KERNEL);
 
 	/* Read 60hz gamma para */
 	memcpy(gamma_para_backup, gamma_para[0], 413);
@@ -8027,7 +8026,7 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 			if (!m_ctrl->ctrl->vaddr)
 				goto error;
 
-			cmds->msg.rx_buf = fb_temp;
+			cmds->msg.rx_buf = rx_buf;
 			cmds->msg.rx_len = 13;
 			rc = dsi_ctrl_cmd_transfer(m_ctrl->ctrl, &cmds->msg, flags);
 			if (rc <= 0) {
@@ -8090,7 +8089,7 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 		flags |= DSI_CTRL_CMD_LAST_COMMAND;
 	}
 	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
-	cmds->msg.rx_buf = c8_temp;
+	cmds->msg.rx_buf = rx_buf;
 	cmds->msg.rx_len = 135;
 	rc = dsi_ctrl_cmd_transfer(m_ctrl->ctrl, &cmds->msg, flags);
 	if (rc <= 0) {
@@ -8112,7 +8111,7 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 		flags |= DSI_CTRL_CMD_LAST_COMMAND;
 	}
 	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
-	cmds->msg.rx_buf = c9_temp;
+	cmds->msg.rx_buf = rx_buf;
 	cmds->msg.rx_len = 180;
 	rc = dsi_ctrl_cmd_transfer(m_ctrl->ctrl, &cmds->msg, flags);
 	if (rc <= 0) {
@@ -8134,7 +8133,7 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 		flags |= DSI_CTRL_CMD_LAST_COMMAND;
 	}
 	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
-	cmds->msg.rx_buf = b3_temp;
+	cmds->msg.rx_buf = rx_buf;
 	cmds->msg.rx_len = 47;
 	rc = dsi_ctrl_cmd_transfer(m_ctrl->ctrl, &cmds->msg, flags);
 	if (rc <= 0) {
@@ -8152,6 +8151,7 @@ int dsi_display_get_gamma_para(struct dsi_display *dsi_display, struct dsi_panel
 	pr_info("Read 90hz gamma done\n");
 
 error:
+	kfree(rx_buf);
 	dsi_panel_release_panel_lock(panel);
 	dsi_display_cmd_engine_disable(dsi_display);
 	return rc;
