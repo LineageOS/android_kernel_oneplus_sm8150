@@ -3085,7 +3085,7 @@ sw_checksum:
 }
 EXPORT_SYMBOL(skb_csum_hwoffload_help);
 
-static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev)
+static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev, bool *again)
 {
 	netdev_features_t features;
 
@@ -3113,9 +3113,6 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device 
 		    __skb_linearize(skb))
 			goto out_kfree_skb;
 
-		if (validate_xmit_xfrm(skb, features))
-			goto out_kfree_skb;
-
 		/* If packet is not checksummed and device does not
 		 * support checksumming for this protocol, complete
 		 * checksumming here.
@@ -3132,6 +3129,8 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device 
 		}
 	}
 
+	skb = validate_xmit_xfrm(skb, features, again);
+
 	return skb;
 
 out_kfree_skb:
@@ -3141,7 +3140,7 @@ out_null:
 	return NULL;
 }
 
-struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev)
+struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev, bool *again)
 {
 	struct sk_buff *next, *head = NULL, *tail;
 
@@ -3152,7 +3151,7 @@ struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *d
 		/* in case skb wont be segmented, point to itself */
 		skb->prev = skb;
 
-		skb = validate_xmit_skb(skb, dev);
+		skb = validate_xmit_skb(skb, dev, again);
 		if (!skb)
 			continue;
 
@@ -3482,6 +3481,7 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
 	struct netdev_queue *txq;
 	struct Qdisc *q;
 	int rc = -ENOMEM;
+	bool again = false;
 
 	skb_reset_mac_header(skb);
 
@@ -3543,7 +3543,7 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
 				     XMIT_RECURSION_LIMIT))
 				goto recursion_alert;
 
-			skb = validate_xmit_skb(skb, dev);
+			skb = validate_xmit_skb(skb, dev, &again);
 			if (!skb)
 				goto out;
 
@@ -3942,11 +3942,35 @@ drop:
 	return NET_RX_DROP;
 }
 
+static struct netdev_rx_queue *netif_get_rxqueue(struct sk_buff *skb)
+{
+	struct net_device *dev = skb->dev;
+	struct netdev_rx_queue *rxqueue;
+
+	rxqueue = dev->_rx;
+
+	if (skb_rx_queue_recorded(skb)) {
+		u16 index = skb_get_rx_queue(skb);
+		if (unlikely(index >= dev->real_num_rx_queues)) {
+			WARN_ONCE(dev->real_num_rx_queues > 1,
+				  "%s received packet on queue %u, but number "
+				  "of RX queues is %u\n",
+				  dev->name, index, dev->real_num_rx_queues);
+			return rxqueue; /* Return first rxqueue */
+		}
+
+		rxqueue += index;
+	}
+
+	return rxqueue;
+}
+
 static u32 netif_receive_generic_xdp(struct sk_buff *skb,
 				     struct bpf_prog *xdp_prog)
 {
+	struct netdev_rx_queue *rxqueue;
+	u32 metalen, act = XDP_DROP;
 	struct xdp_buff xdp;
-	u32 act = XDP_DROP;
 	void *orig_data;
 	int hlen, off;
 	u32 mac_len;
@@ -3957,8 +3981,24 @@ static u32 netif_receive_generic_xdp(struct sk_buff *skb,
 	if (skb_cloned(skb))
 		return XDP_PASS;
 
-	if (skb_linearize(skb))
-		goto do_drop;
+	/* XDP packets must be linear and must have sufficient headroom
+	 * of XDP_PACKET_HEADROOM bytes. This is the guarantee that also
+	 * native XDP provides, thus we need to do it here as well.
+	 */
+	if (skb_is_nonlinear(skb) ||
+	    skb_headroom(skb) < XDP_PACKET_HEADROOM) {
+		int hroom = XDP_PACKET_HEADROOM - skb_headroom(skb);
+		int troom = skb->tail + skb->data_len - skb->end;
+		/* In case we have to go down the path and also linearize,
+		 * then lets do the pskb_expand_head() work just once here.
+		 */
+		if (pskb_expand_head(skb,
+				     hroom > 0 ? ALIGN(hroom, NET_SKB_PAD) : 0,
+				     troom > 0 ? troom + 128 : 0, GFP_ATOMIC))
+			goto do_drop;
+		if (troom > 0 && __skb_linearize(skb))
+			goto do_drop;
+	}
 
 	/* The XDP program wants to see the packet starting at the MAC
 	 * header.
@@ -3967,8 +4007,12 @@ static u32 netif_receive_generic_xdp(struct sk_buff *skb,
 	hlen = skb_headlen(skb) + mac_len;
 	xdp.data = skb->data - mac_len;
 	xdp.data_end = xdp.data + hlen;
+	xdp.data_meta = xdp.data;
 	xdp.data_hard_start = skb->data - skb_headroom(skb);
 	orig_data = xdp.data;
+
+	rxqueue = netif_get_rxqueue(skb);
+	xdp.rxq = &rxqueue->xdp_rxq;
 
 	act = bpf_prog_run_xdp(xdp_prog, &xdp);
 
@@ -3983,8 +4027,11 @@ static u32 netif_receive_generic_xdp(struct sk_buff *skb,
 	case XDP_REDIRECT:
 	case XDP_TX:
 		__skb_push(skb, mac_len);
-		/* fall through */
+		break;
 	case XDP_PASS:
+		metalen = xdp.data - xdp.data_meta;
+		if (metalen)
+			skb_metadata_set(skb, metalen);
 		break;
 
 	default:
@@ -4207,6 +4254,7 @@ static __latent_entropy void net_tx_action(struct softirq_action *h)
 			spin_unlock(root_lock);
 		}
 	}
+	xfrm_dev_backlog(sd);
 }
 
 #if IS_ENABLED(CONFIG_BRIDGE) && IS_ENABLED(CONFIG_ATM_LANE)
@@ -4583,7 +4631,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
 	return ret;
 }
 
-static int generic_xdp_install(struct net_device *dev, struct netdev_xdp *xdp)
+static int generic_xdp_install(struct net_device *dev, struct netdev_bpf *xdp)
 {
 	struct bpf_prog *old = rtnl_dereference(dev->xdp_prog);
 	struct bpf_prog *new = xdp->prog;
@@ -4812,6 +4860,7 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
 		diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
 		diffs |= p->vlan_tci ^ skb->vlan_tci;
 		diffs |= skb_metadata_dst_cmp(p, skb);
+		diffs |= skb_metadata_differs(p, skb);
 		if (maclen == ETH_HLEN)
 			diffs |= compare_ether_header(skb_mac_header(p),
 						      skb_mac_header(skb));
@@ -7142,26 +7191,26 @@ int dev_change_proto_down(struct net_device *dev, bool proto_down)
 }
 EXPORT_SYMBOL(dev_change_proto_down);
 
-u8 __dev_xdp_attached(struct net_device *dev, xdp_op_t xdp_op, u32 *prog_id)
+u8 __dev_xdp_attached(struct net_device *dev, bpf_op_t bpf_op, u32 *prog_id)
 {
-	struct netdev_xdp xdp;
+	struct netdev_bpf xdp;
 
 	memset(&xdp, 0, sizeof(xdp));
 	xdp.command = XDP_QUERY_PROG;
 
 	/* Query must always succeed. */
-	WARN_ON(xdp_op(dev, &xdp) < 0);
+	WARN_ON(bpf_op(dev, &xdp) < 0);
 	if (prog_id)
 		*prog_id = xdp.prog_id;
 
 	return xdp.prog_attached;
 }
 
-static int dev_xdp_install(struct net_device *dev, xdp_op_t xdp_op,
+static int dev_xdp_install(struct net_device *dev, bpf_op_t bpf_op,
 			   struct netlink_ext_ack *extack, u32 flags,
 			   struct bpf_prog *prog)
 {
-	struct netdev_xdp xdp;
+	struct netdev_bpf xdp;
 
 	memset(&xdp, 0, sizeof(xdp));
 	if (flags & XDP_FLAGS_HW_MODE)
@@ -7172,7 +7221,7 @@ static int dev_xdp_install(struct net_device *dev, xdp_op_t xdp_op,
 	xdp.flags = flags;
 	xdp.prog = prog;
 
-	return xdp_op(dev, &xdp);
+	return bpf_op(dev, &xdp);
 }
 
 /**
@@ -7189,24 +7238,24 @@ int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
 {
 	const struct net_device_ops *ops = dev->netdev_ops;
 	struct bpf_prog *prog = NULL;
-	xdp_op_t xdp_op, xdp_chk;
+	bpf_op_t bpf_op, bpf_chk;
 	int err;
 
 	ASSERT_RTNL();
 
-	xdp_op = xdp_chk = ops->ndo_xdp;
-	if (!xdp_op && (flags & (XDP_FLAGS_DRV_MODE | XDP_FLAGS_HW_MODE)))
+	bpf_op = bpf_chk = ops->ndo_bpf;
+	if (!bpf_op && (flags & (XDP_FLAGS_DRV_MODE | XDP_FLAGS_HW_MODE)))
 		return -EOPNOTSUPP;
-	if (!xdp_op || (flags & XDP_FLAGS_SKB_MODE))
-		xdp_op = generic_xdp_install;
-	if (xdp_op == xdp_chk)
-		xdp_chk = generic_xdp_install;
+	if (!bpf_op || (flags & XDP_FLAGS_SKB_MODE))
+		bpf_op = generic_xdp_install;
+	if (bpf_op == bpf_chk)
+		bpf_chk = generic_xdp_install;
 
 	if (fd >= 0) {
-		if (xdp_chk && __dev_xdp_attached(dev, xdp_chk, NULL))
+		if (bpf_chk && __dev_xdp_attached(dev, bpf_chk, NULL))
 			return -EEXIST;
 		if ((flags & XDP_FLAGS_UPDATE_IF_NOEXIST) &&
-		    __dev_xdp_attached(dev, xdp_op, NULL))
+		    __dev_xdp_attached(dev, bpf_op, NULL))
 			return -EBUSY;
 
 		prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_XDP);
@@ -7214,7 +7263,7 @@ int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
 			return PTR_ERR(prog);
 	}
 
-	err = dev_xdp_install(dev, xdp_op, extack, flags, prog);
+	err = dev_xdp_install(dev, bpf_op, extack, flags, prog);
 	if (err < 0 && prog)
 		bpf_prog_put(prog);
 
@@ -7587,12 +7636,12 @@ void netif_stacked_transfer_operstate(const struct net_device *rootdev,
 }
 EXPORT_SYMBOL(netif_stacked_transfer_operstate);
 
-#ifdef CONFIG_SYSFS
 static int netif_alloc_rx_queues(struct net_device *dev)
 {
 	unsigned int i, count = dev->num_rx_queues;
 	struct netdev_rx_queue *rx;
 	size_t sz = count * sizeof(*rx);
+	int err = 0;
 
 	BUG_ON(count < 1);
 
@@ -7602,11 +7651,38 @@ static int netif_alloc_rx_queues(struct net_device *dev)
 
 	dev->_rx = rx;
 
-	for (i = 0; i < count; i++)
+	for (i = 0; i < count; i++) {
 		rx[i].dev = dev;
+
+		/* XDP RX-queue setup */
+		err = xdp_rxq_info_reg(&rx[i].xdp_rxq, dev, i);
+		if (err < 0)
+			goto err_rxq_info;
+	}
 	return 0;
+
+err_rxq_info:
+	/* Rollback successful reg's and free other resources */
+	while (i--)
+		xdp_rxq_info_unreg(&rx[i].xdp_rxq);
+	kfree(dev->_rx);
+	dev->_rx = NULL;
+	return err;
 }
-#endif
+
+static void netif_free_rx_queues(struct net_device *dev)
+{
+	unsigned int i, count = dev->num_rx_queues;
+	struct netdev_rx_queue *rx;
+	/* netif_alloc_rx_queues alloc failed, resources have been unreg'ed */
+	if (!dev->_rx)
+		return;
+
+	rx = dev->_rx;
+	for (i = 0; i < count; i++)
+		xdp_rxq_info_unreg(&rx[i].xdp_rxq);
+
+}
 
 static void netdev_init_one_queue(struct net_device *dev,
 				  struct netdev_queue *queue, void *_unused)
@@ -7617,9 +7693,7 @@ static void netdev_init_one_queue(struct net_device *dev,
 	queue->xmit_lock_owner = -1;
 	netdev_queue_numa_node_write(queue, NUMA_NO_NODE);
 	queue->dev = dev;
-#ifdef CONFIG_BQL
 	dql_init(&queue->dql, HZ);
-#endif
 }
 
 static void netif_free_tx_queues(struct net_device *dev)
@@ -8252,12 +8326,10 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
 	if (netif_alloc_netdev_queues(dev))
 		goto free_all;
 
-#ifdef CONFIG_SYSFS
 	dev->num_rx_queues = rxqs;
 	dev->real_num_rx_queues = rxqs;
 	if (netif_alloc_rx_queues(dev))
 		goto free_all;
-#endif
 
 	strcpy(dev->name, name);
 	dev->name_assign_type = name_assign_type;
@@ -8297,9 +8369,7 @@ void free_netdev(struct net_device *dev)
 
 	might_sleep();
 	netif_free_tx_queues(dev);
-#ifdef CONFIG_SYSFS
-	kvfree(dev->_rx);
-#endif
+	netif_free_rx_queues(dev);
 
 	kfree(rcu_dereference_protected(dev->ingress_queue, 1));
 
@@ -8901,6 +8971,9 @@ static int __init net_dev_init(void)
 
 		skb_queue_head_init(&sd->input_pkt_queue);
 		skb_queue_head_init(&sd->process_queue);
+#ifdef CONFIG_XFRM_OFFLOAD
+		skb_queue_head_init(&sd->xfrm_backlog);
+#endif
 		INIT_LIST_HEAD(&sd->poll_list);
 		sd->output_queue_tailp = &sd->output_queue;
 #ifdef CONFIG_RPS
