@@ -22,100 +22,6 @@
 
 #include <linux/tracepoint.h>
 
-DECLARE_EVENT_CLASS(rot_entry_template,
-	TP_PROTO(u32 ss_id, u32 sq_id, u32 pr_id, u32 flags,
-			u32 src_fmt, u32 src_bw, u32 src_bh,
-			u32 src_x, u32 src_y, u32 src_w, u32 src_h,
-			u32 dst_fmt, u32 dst_bw, u32 dst_bh,
-			u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h),
-	TP_ARGS(ss_id, sq_id, pr_id, flags,
-			src_fmt, src_bw, src_bh, src_x, src_y, src_w, src_h,
-			dst_fmt, dst_bw, dst_bh, dst_x, dst_y, dst_w, dst_h),
-	TP_STRUCT__entry(
-			__field(u32, ss_id)
-			__field(u32, sq_id)
-			__field(u32, pr_id)
-			__field(u32, flags)
-			__field(u32, src_fmt)
-			__field(u16, src_bw)
-			__field(u16, src_bh)
-			__field(u16, src_x)
-			__field(u16, src_y)
-			__field(u16, src_w)
-			__field(u16, src_h)
-			__field(u32, dst_fmt)
-			__field(u16, dst_bw)
-			__field(u16, dst_bh)
-			__field(u16, dst_x)
-			__field(u16, dst_y)
-			__field(u16, dst_w)
-			__field(u16, dst_h)
-	),
-	TP_fast_assign(
-			__entry->ss_id = ss_id;
-			__entry->sq_id = sq_id;
-			__entry->pr_id = pr_id;
-			__entry->flags = flags;
-			__entry->src_fmt = src_fmt;
-			__entry->src_bw = src_bw;
-			__entry->src_bh = src_bh;
-			__entry->src_x = src_x;
-			__entry->src_y = src_y;
-			__entry->src_w = src_w;
-			__entry->src_h = src_h;
-			__entry->dst_fmt = dst_fmt;
-			__entry->dst_bw = dst_bw;
-			__entry->dst_bh = dst_bh;
-			__entry->dst_x = dst_x;
-			__entry->dst_y = dst_y;
-			__entry->dst_w = dst_w;
-			__entry->dst_h = dst_h;
-	),
-
-	TP_printk("%d.%d|%d|%x|%x|%u,%u|%u,%u,%u,%u|%x|%u,%u|%u,%u,%u,%u|",
-			__entry->ss_id, __entry->sq_id, __entry->pr_id,
-			__entry->flags,
-			__entry->src_fmt, __entry->src_bw, __entry->src_bh,
-			__entry->src_x, __entry->src_y,
-			__entry->src_w, __entry->src_h,
-			__entry->dst_fmt, __entry->dst_bw, __entry->dst_bh,
-			__entry->dst_x, __entry->dst_y,
-			__entry->dst_w, __entry->dst_h)
-);
-
-DEFINE_EVENT(rot_entry_template, rot_entry_fence,
-	TP_PROTO(u32 ss_id, u32 sq_id, u32 pr_id, u32 flags,
-			u32 src_fmt, u32 src_bw, u32 src_bh,
-			u32 src_x, u32 src_y, u32 src_w, u32 src_h,
-			u32 dst_fmt, u32 dst_bw, u32 dst_bh,
-			u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h),
-	TP_ARGS(ss_id, sq_id, pr_id, flags,
-			src_fmt, src_bw, src_bh, src_x, src_y, src_w, src_h,
-			dst_fmt, dst_bw, dst_bh, dst_x, dst_y, dst_w, dst_h)
-);
-
-DEFINE_EVENT(rot_entry_template, rot_entry_commit,
-	TP_PROTO(u32 ss_id, u32 sq_id, u32 pr_id, u32 flags,
-			u32 src_fmt, u32 src_bw, u32 src_bh,
-			u32 src_x, u32 src_y, u32 src_w, u32 src_h,
-			u32 dst_fmt, u32 dst_bw, u32 dst_bh,
-			u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h),
-	TP_ARGS(ss_id, sq_id, pr_id, flags,
-			src_fmt, src_bw, src_bh, src_x, src_y, src_w, src_h,
-			dst_fmt, dst_bw, dst_bh, dst_x, dst_y, dst_w, dst_h)
-);
-
-DEFINE_EVENT(rot_entry_template, rot_entry_done,
-	TP_PROTO(u32 ss_id, u32 sq_id, u32 pr_id, u32 flags,
-			u32 src_fmt, u32 src_bw, u32 src_bh,
-			u32 src_x, u32 src_y, u32 src_w, u32 src_h,
-			u32 dst_fmt, u32 dst_bw, u32 dst_bh,
-			u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h),
-	TP_ARGS(ss_id, sq_id, pr_id, flags,
-			src_fmt, src_bw, src_bh, src_x, src_y, src_w, src_h,
-			dst_fmt, dst_bw, dst_bh, dst_x, dst_y, dst_w, dst_h)
-);
-
 TRACE_EVENT(rot_perf_set_qos_luts,
 	TP_PROTO(u32 pnum, u32 fmt, u32 lut, bool linear),
 	TP_ARGS(pnum, fmt, lut, linear),
@@ -297,7 +203,7 @@ TRACE_EVENT(rot_bw_ao_as_context,
 
 #define SDE_ROT_TRACE_EVTLOG_SIZE	15
 TRACE_EVENT(sde_rot_evtlog,
-	TP_PROTO(const char *tag, u32 tag_id, u32 cnt, u32 data[]),
+	TP_PROTO(const char *tag, u32 tag_id, u32 cnt, u32 *data),
 	TP_ARGS(tag, tag_id, cnt, data),
 	TP_STRUCT__entry(
 			__field(int, pid)

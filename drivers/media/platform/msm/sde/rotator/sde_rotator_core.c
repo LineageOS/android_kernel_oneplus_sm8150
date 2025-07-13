@@ -1603,18 +1603,6 @@ static void sde_rotator_commit_handler(struct kthread_work *work)
 	if (entry->item.ts)
 		entry->item.ts[SDE_ROTATOR_TS_COMMIT] = ktime_get();
 
-	trace_rot_entry_commit(
-		entry->item.session_id, entry->item.sequence_id,
-		entry->item.wb_idx, entry->item.flags,
-		entry->item.input.format,
-		entry->item.input.width, entry->item.input.height,
-		entry->item.src_rect.x, entry->item.src_rect.y,
-		entry->item.src_rect.w, entry->item.src_rect.h,
-		entry->item.output.format,
-		entry->item.output.width, entry->item.output.height,
-		entry->item.dst_rect.x, entry->item.dst_rect.y,
-		entry->item.dst_rect.w, entry->item.dst_rect.h);
-
 	ATRACE_INT("sde_smmu_ctrl", 0);
 	ret = sde_smmu_ctrl(1);
 	if (ret < 0) {
@@ -1732,18 +1720,6 @@ static void sde_rotator_done_handler(struct kthread_work *work)
 
 	if (entry->item.ts)
 		entry->item.ts[SDE_ROTATOR_TS_DONE] = ktime_get();
-
-	trace_rot_entry_done(
-		entry->item.session_id, entry->item.sequence_id,
-		entry->item.wb_idx, entry->item.flags,
-		entry->item.input.format,
-		entry->item.input.width, entry->item.input.height,
-		entry->item.src_rect.x, entry->item.src_rect.y,
-		entry->item.src_rect.w, entry->item.src_rect.h,
-		entry->item.output.format,
-		entry->item.output.width, entry->item.output.height,
-		entry->item.dst_rect.x, entry->item.dst_rect.y,
-		entry->item.dst_rect.w, entry->item.dst_rect.h);
 
 	sde_rot_mgr_lock(mgr);
 	sde_rotator_put_hw_resource(entry->commitq, entry, entry->commitq->hw);

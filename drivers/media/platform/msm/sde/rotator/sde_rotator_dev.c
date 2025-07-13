@@ -1882,25 +1882,6 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		req->retire_kw = ctx->work_queue.rot_kw;
 		req->retire_work = &request->retire_work;
 
-		trace_rot_entry_fence(
-			ctx->session_id, cmd->sequence_id,
-			req->entries[0].item.wb_idx,
-			req->entries[0].item.flags,
-			req->entries[0].item.input.format,
-			req->entries[0].item.input.width,
-			req->entries[0].item.input.height,
-			req->entries[0].item.src_rect.x,
-			req->entries[0].item.src_rect.y,
-			req->entries[0].item.src_rect.w,
-			req->entries[0].item.src_rect.h,
-			req->entries[0].item.output.format,
-			req->entries[0].item.output.width,
-			req->entries[0].item.output.height,
-			req->entries[0].item.dst_rect.x,
-			req->entries[0].item.dst_rect.y,
-			req->entries[0].item.dst_rect.w,
-			req->entries[0].item.dst_rect.h);
-
 		ret = sde_rotator_handle_request_common(
 				rot_dev->mgr, ctx->private, req);
 		if (ret) {
@@ -3161,22 +3142,6 @@ static int sde_rotator_process_buffers(struct sde_rotator_ctx *ctx,
 	vbinfo_cap->dqbuf_ts = &ts[SDE_ROTATOR_TS_DSTDQB];
 
 	ts[SDE_ROTATOR_TS_FENCE] = ktime_get();
-
-	trace_rot_entry_fence(
-		ctx->session_id, vbinfo_cap->fence_ts,
-		ctx->fh.prio,
-		(ctx->rotate << 0) | (ctx->hflip << 8) |
-			(ctx->hflip << 9) | (ctx->secure << 10),
-		ctx->format_out.fmt.pix.pixelformat,
-		ctx->format_out.fmt.pix.width,
-		ctx->format_out.fmt.pix.height,
-		ctx->crop_out.left, ctx->crop_out.top,
-		ctx->crop_out.width, ctx->crop_out.height,
-		ctx->format_cap.fmt.pix.pixelformat,
-		ctx->format_cap.fmt.pix.width,
-		ctx->format_cap.fmt.pix.height,
-		ctx->crop_cap.left, ctx->crop_cap.top,
-		ctx->crop_cap.width, ctx->crop_cap.height);
 
 	if (vbinfo_out->fence) {
 		sde_rot_mgr_unlock(rot_dev->mgr);
