@@ -1,0 +1,24 @@
+config GKI_HIDDEN_GPU_CONFIGS
+	bool "Hidden GPU configuration needed for GKI"
+	select TRACE_GPU_MEM
+	help
+	  Dummy config option used to enable the hidden GPU config.
+	  These are normally selected implicitly when a module
+	  that relies on it is configured.
+
+# Atrocities needed for
+# a) building GKI modules in separate tree, or
+# b) building drivers that are not modularizable
+#
+# All of these should be reworked into an upstream solution
+# if possible.
+#
+config GKI_HACKS_TO_FIX
+	bool "GKI Dummy config options"
+	select GKI_HIDDEN_GPU_CONFIGS
+	help
+	  Dummy config option used to enable core functionality used by
+	  modules that may not be selectable in this config.
+
+	  Unless you are building a GKI kernel to be used with modules
+	  built from a different config, say N here.

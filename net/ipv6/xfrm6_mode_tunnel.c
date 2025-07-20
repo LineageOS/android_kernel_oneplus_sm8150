@@ -112,10 +112,8 @@ static void xfrm6_mode_tunnel_xmit(struct xfrm_state *x, struct sk_buff *skb)
 {
 	struct xfrm_offload *xo = xfrm_offload(skb);
 
-	if (xo->flags & XFRM_GSO_SEGMENT) {
-		skb->network_header = skb->network_header - x->props.header_len;
+	if (xo->flags & XFRM_GSO_SEGMENT)
 		skb->transport_header = skb->network_header + sizeof(struct ipv6hdr);
-	}
 
 	skb_reset_mac_len(skb);
 	pskb_pull(skb, skb->mac_len + x->props.header_len);
