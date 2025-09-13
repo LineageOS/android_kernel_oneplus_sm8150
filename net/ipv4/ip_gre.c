@@ -114,7 +114,8 @@ MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
 static struct rtnl_link_ops ipgre_link_ops __read_mostly;
 static int ipgre_tunnel_init(struct net_device *dev);
 static void erspan_build_header(struct sk_buff *skb,
-				__be32 id, u32 index, bool truncate);
+				__be32 id, u32 index,
+				bool truncate, bool is_ipv4);
 
 static unsigned int ipgre_net_id __read_mostly;
 static unsigned int gre_tap_net_id __read_mostly;
@@ -514,6 +515,7 @@ err_free_skb:
 static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev,
 			__be16 proto)
 {
+	struct ip_tunnel *tunnel = netdev_priv(dev);
 	struct ip_tunnel_info *tun_info;
 	const struct ip_tunnel_key *key;
 	struct rtable *rt = NULL;
@@ -537,9 +539,11 @@ static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev,
 	if (gre_handle_offloads(skb, !!(tun_info->key.tun_flags & TUNNEL_CSUM)))
 		goto err_free_rt;
 
-	flags = tun_info->key.tun_flags & (TUNNEL_CSUM | TUNNEL_KEY);
+	flags = tun_info->key.tun_flags &
+		(TUNNEL_CSUM | TUNNEL_KEY | TUNNEL_SEQ);
 	gre_build_header(skb, tunnel_hlen, flags, proto,
-			 tunnel_id_to_key32(tun_info->key.tun_id), 0);
+			 tunnel_id_to_key32(tun_info->key.tun_id),
+			 (flags | TUNNEL_SEQ) ? htonl(tunnel->o_seqno++) : 0);
 
 	df = key->tun_flags & TUNNEL_DONT_FRAGMENT ?  htons(IP_DF) : 0;
 
@@ -573,6 +577,8 @@ static void erspan_fb_xmit(struct sk_buff *skb, struct net_device *dev,
 		goto err_free_skb;
 
 	key = &tun_info->key;
+	if (!(tun_info->key.tun_flags & TUNNEL_ERSPAN_OPT))
+		goto err_free_rt;
 
 	/* ERSPAN has fixed 8 byte GRE header */
 	tunnel_hlen = 8 + sizeof(struct erspanhdr);
@@ -597,7 +603,7 @@ static void erspan_fb_xmit(struct sk_buff *skb, struct net_device *dev,
 		goto err_free_rt;
 
 	erspan_build_header(skb, tunnel_id_to_key32(key->tun_id),
-			    ntohl(md->index), truncate);
+			    ntohl(md->index), truncate, true);
 
 	gre_build_header(skb, 8, TUNNEL_SEQ,
 			 htons(ETH_P_ERSPAN), 0, htonl(tunnel->o_seqno++));
@@ -679,52 +685,6 @@ free_skb:
 	return NETDEV_TX_OK;
 }
 
-static inline u8 tos_to_cos(u8 tos)
-{
-	u8 dscp, cos;
-
-	dscp = tos >> 2;
-	cos = dscp >> 3;
-	return cos;
-}
-
-static void erspan_build_header(struct sk_buff *skb,
-				__be32 id, u32 index, bool truncate)
-{
-	struct iphdr *iphdr = ip_hdr(skb);
-	struct ethhdr *eth = (struct ethhdr *)skb->data;
-	enum erspan_encap_type enc_type;
-	struct erspanhdr *ershdr;
-	struct qtag_prefix {
-		__be16 eth_type;
-		__be16 tci;
-	} *qp;
-	u16 vlan_tci = 0;
-
-	enc_type = ERSPAN_ENCAP_NOVLAN;
-
-	/* If mirrored packet has vlan tag, extract tci and
-	 *  perserve vlan header in the mirrored frame.
-	 */
-	if (eth->h_proto == htons(ETH_P_8021Q)) {
-		qp = (struct qtag_prefix *)(skb->data + 2 * ETH_ALEN);
-		vlan_tci = ntohs(qp->tci);
-		enc_type = ERSPAN_ENCAP_INFRAME;
-	}
-
-	skb_push(skb, sizeof(*ershdr));
-	ershdr = (struct erspanhdr *)skb->data;
-	memset(ershdr, 0, sizeof(*ershdr));
-
-	ershdr->ver_vlan = htons((vlan_tci & VLAN_MASK) |
-				 (ERSPAN_VERSION << VER_OFFSET));
-	ershdr->session_id = htons((u16)(ntohl(id) & ID_MASK) |
-			   ((tos_to_cos(iphdr->tos) << COS_OFFSET) & COS_MASK) |
-			   (enc_type << EN_OFFSET & EN_MASK) |
-			   ((truncate << T_OFFSET) & T_MASK));
-	ershdr->md.index = htonl(index & INDEX_MASK);
-}
-
 static netdev_tx_t erspan_xmit(struct sk_buff *skb,
 			       struct net_device *dev)
 {
@@ -751,7 +711,8 @@ static netdev_tx_t erspan_xmit(struct sk_buff *skb,
 	}
 
 	/* Push ERSPAN header */
-	erspan_build_header(skb, tunnel->parms.o_key, tunnel->index, truncate);
+	erspan_build_header(skb, tunnel->parms.o_key, tunnel->index,
+			    truncate, true);
 	tunnel->parms.o_flags &= ~TUNNEL_KEY;
 	__gre_xmit(skb, dev, &tunnel->parms.iph, htons(ETH_P_ERSPAN));
 	return NETDEV_TX_OK;

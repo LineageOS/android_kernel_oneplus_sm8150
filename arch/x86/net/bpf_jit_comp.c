@@ -750,6 +750,13 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 			}
 			break;
 
+			/* speculation barrier */
+		case BPF_ST | BPF_NOSPEC:
+			if (boot_cpu_has(X86_FEATURE_XMM2))
+				/* Emit 'lfence' */
+				EMIT3(0x0F, 0xAE, 0xE8);
+			break;
+
 			/* ST: *(u8*)(dst_reg + off) = imm */
 		case BPF_ST | BPF_MEM | BPF_B:
 			if (is_ereg(dst_reg))
@@ -1129,19 +1136,29 @@ common_load:
 	return proglen;
 }
 
+struct x64_jit_data {
+	struct bpf_binary_header *header;
+	int *addrs;
+	u8 *image;
+	int proglen;
+	struct jit_context ctx;
+};
+
 struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 {
 	struct bpf_binary_header *header = NULL;
 	struct bpf_prog *tmp, *orig_prog = prog;
+	struct x64_jit_data *jit_data;
 	int proglen, oldproglen = 0;
 	struct jit_context ctx = {};
 	bool tmp_blinded = false;
+	bool extra_pass = false;
 	u8 *image = NULL;
 	int *addrs;
 	int pass;
 	int i;
 
-	if (!bpf_jit_enable)
+	if (!prog->jit_requested)
 		return orig_prog;
 
 	tmp = bpf_jit_blind_constants(prog);
@@ -1155,10 +1172,28 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 		prog = tmp;
 	}
 
+	jit_data = prog->aux->jit_data;
+	if (!jit_data) {
+		jit_data = kzalloc(sizeof(*jit_data), GFP_KERNEL);
+		if (!jit_data) {
+			prog = orig_prog;
+			goto out;
+		}
+		prog->aux->jit_data = jit_data;
+	}
+	addrs = jit_data->addrs;
+	if (addrs) {
+		ctx = jit_data->ctx;
+		oldproglen = jit_data->proglen;
+		image = jit_data->image;
+		header = jit_data->header;
+		extra_pass = true;
+		goto skip_init_addrs;
+	}
 	addrs = kmalloc(prog->len * sizeof(*addrs), GFP_KERNEL);
 	if (!addrs) {
 		prog = orig_prog;
-		goto out;
+		goto out_addrs;
 	}
 
 	/* Before first pass, make a rough estimation of addrs[]
@@ -1169,6 +1204,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 		addrs[i] = proglen;
 	}
 	ctx.cleanup_addr = proglen;
+skip_init_addrs:
 
 	/* JITed image shrinks with every pass and the loop iterates
 	 * until the image stops shrinking. Very large bpf programs
@@ -1210,7 +1246,15 @@ out_image:
 
 	if (image) {
 		bpf_flush_icache(header, image + proglen);
-		bpf_jit_binary_lock_ro(header);
+		if (!prog->is_func || extra_pass) {
+			bpf_jit_binary_lock_ro(header);
+		} else {
+			jit_data->addrs = addrs;
+			jit_data->ctx = ctx;
+			jit_data->proglen = proglen;
+			jit_data->image = image;
+			jit_data->header = header;
+		}
 		prog->bpf_func = (void *)image;
 		prog->jited = 1;
 		prog->jited_len = proglen;
@@ -1218,8 +1262,14 @@ out_image:
 		prog = orig_prog;
 	}
 
+	if (!image || !prog->is_func || extra_pass) {
+		if (image)
+			bpf_prog_fill_jited_linfo(prog, addrs);
 out_addrs:
-	kfree(addrs);
+		kfree(addrs);
+		kfree(jit_data);
+		prog->aux->jit_data = NULL;
+	}
 out:
 	if (tmp_blinded)
 		bpf_jit_prog_release_other(prog, prog == orig_prog ?

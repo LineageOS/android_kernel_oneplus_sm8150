@@ -217,12 +217,7 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
 	refcount_set(&req->rsk_refcnt, 2);
 
 	/* Now finish processing the fastopen child socket. */
-	inet_csk(child)->icsk_af_ops->rebuild_header(child);
-	tcp_init_congestion_control(child);
-	tcp_mtup_init(child);
-	tcp_init_metrics(child);
-	tcp_call_bpf(child, BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
-	tcp_init_buffer_space(child);
+	tcp_init_transfer(child, BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
 
 	tp->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
 
@@ -332,17 +327,7 @@ fastopen:
 bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
 			       struct tcp_fastopen_cookie *cookie)
 {
-	unsigned long last_syn_loss = 0;
-	int syn_loss = 0;
-
-	tcp_fastopen_cache_get(sk, mss, cookie, &syn_loss, &last_syn_loss);
-
-	/* Recurring FO SYN losses: no cookie or data in SYN */
-	if (syn_loss > 1 &&
-	    time_before(jiffies, last_syn_loss + (60*HZ << syn_loss))) {
-		cookie->len = -1;
-		return false;
-	}
+	tcp_fastopen_cache_get(sk, mss, cookie);
 
 	/* Firewall blackhole issue check */
 	if (tcp_fastopen_active_should_disable(sk)) {
@@ -398,6 +383,8 @@ EXPORT_SYMBOL(tcp_fastopen_defer_connect);
  * following circumstances:
  *   1. client side TFO socket receives out of order FIN
  *   2. client side TFO socket receives out of order RST
+ *   3. client side TFO socket has timed out three times consecutively during
+ *      or after handshake
  * We disable active side TFO globally for 1hr at first. Then if it
  * happens again, we disable it for 2h, then 4h, 8h, ...
  * And we reset the timeout back to 1hr when we see a successful active
@@ -480,5 +467,22 @@ void tcp_fastopen_active_disable_ofo_check(struct sock *sk)
 		if (!(dst && dst->dev && (dst->dev->flags & IFF_LOOPBACK)))
 			tcp_fastopen_active_timeout_reset();
 		dst_release(dst);
+	}
+}
+
+void tcp_fastopen_active_detect_blackhole(struct sock *sk, bool expired)
+{
+	u32 timeouts = inet_csk(sk)->icsk_retransmits;
+	struct tcp_sock *tp = tcp_sk(sk);
+
+	/* Broken middle-boxes may black-hole Fast Open connection during or
+	 * even after the handshake. Be extremely conservative and pause
+	 * Fast Open globally after hitting the third consecutive timeout or
+	 * exceeding the configured timeout limit.
+	 */
+	if ((tp->syn_fastopen || tp->syn_data || tp->syn_data_acked) &&
+	    (timeouts == 2 || (timeouts < 2 && expired))) {
+		tcp_fastopen_active_disable(sk);
+		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPFASTOPENACTIVEFAIL);
 	}
 }

@@ -1065,7 +1065,7 @@ static int qede_xdp_set(struct qede_dev *edev, struct bpf_prog *prog)
 	return 0;
 }
 
-int qede_xdp(struct net_device *dev, struct netdev_xdp *xdp)
+int qede_xdp(struct net_device *dev, struct netdev_bpf *xdp)
 {
 	struct qede_dev *edev = netdev_priv(dev);
 
@@ -1073,7 +1073,6 @@ int qede_xdp(struct net_device *dev, struct netdev_xdp *xdp)
 	case XDP_SETUP_PROG:
 		return qede_xdp_set(edev, xdp->prog);
 	case XDP_QUERY_PROG:
-		xdp->prog_attached = !!edev->xdp_prog;
 		xdp->prog_id = edev->xdp_prog ? edev->xdp_prog->aux->id : 0;
 		return 0;
 	default:

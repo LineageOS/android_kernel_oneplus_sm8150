@@ -40,6 +40,7 @@
 #include <linux/kernel.h>
 #include <linux/mutex.h>
 #include <linux/bpf.h>
+#include <net/xdp.h>
 #include <linux/qed/qede_rdma.h>
 #include <linux/io.h>
 #ifdef CONFIG_RFS_ACCEL
@@ -347,6 +348,7 @@ struct qede_rx_queue {
 	u64 xdp_no_pass;
 
 	void *handle;
+	struct xdp_rxq_info xdp_rxq;
 };
 
 union db_prod {
@@ -505,7 +507,7 @@ void qede_fill_rss_params(struct qede_dev *edev,
 void qede_udp_tunnel_add(struct net_device *dev, struct udp_tunnel_info *ti);
 void qede_udp_tunnel_del(struct net_device *dev, struct udp_tunnel_info *ti);
 
-int qede_xdp(struct net_device *dev, struct netdev_xdp *xdp);
+int qede_xdp(struct net_device *dev, struct netdev_bpf *xdp);
 
 #ifdef CONFIG_DCB
 void qede_set_dcbnl_ops(struct net_device *ndev);

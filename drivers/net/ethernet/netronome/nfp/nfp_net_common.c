@@ -1614,6 +1614,7 @@ static int nfp_net_run_xdp(struct bpf_prog *prog, void *data, void *hard_start,
 
 	xdp.data_hard_start = hard_start;
 	xdp.data = data + *off;
+	xdp_set_data_meta_invalid(&xdp);
 	xdp.data_end = data + *off + *len;
 
 	orig_data = xdp.data;
@@ -3422,7 +3423,7 @@ nfp_net_xdp_setup(struct nfp_net *nn, struct bpf_prog *prog, u32 flags,
 	return 0;
 }
 
-static int nfp_net_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
+static int nfp_net_xdp(struct net_device *netdev, struct netdev_bpf *xdp)
 {
 	struct nfp_net *nn = netdev_priv(netdev);
 
@@ -3432,10 +3433,8 @@ static int nfp_net_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
 		return nfp_net_xdp_setup(nn, xdp->prog, xdp->flags,
 					 xdp->extack);
 	case XDP_QUERY_PROG:
-		xdp->prog_attached = !!nn->xdp_prog;
-		if (nn->dp.bpf_offload_xdp)
-			xdp->prog_attached = XDP_ATTACHED_HW;
 		xdp->prog_id = nn->xdp_prog ? nn->xdp_prog->aux->id : 0;
+		xdp->flags = nn->xdp_prog ? nn->xdp_flags : 0;
 		return 0;
 	default:
 		return -EINVAL;
@@ -3485,7 +3484,7 @@ const struct net_device_ops nfp_net_netdev_ops = {
 	.ndo_get_phys_port_name	= nfp_port_get_phys_port_name,
 	.ndo_udp_tunnel_add	= nfp_net_add_vxlan_port,
 	.ndo_udp_tunnel_del	= nfp_net_del_vxlan_port,
-	.ndo_xdp		= nfp_net_xdp,
+	.ndo_bpf		= nfp_net_xdp,
 };
 
 /**

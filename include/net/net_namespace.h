@@ -30,6 +30,7 @@
 #include <net/netns/xfrm.h>
 #include <net/netns/mpls.h>
 #include <net/netns/can.h>
+#include <net/netns/xdp.h>
 #include <linux/ns_common.h>
 #include <linux/idr.h>
 #include <linux/skbuff.h>
@@ -42,6 +43,7 @@ struct ctl_table_header;
 struct net_generic;
 struct sock;
 struct netns_ipvs;
+struct bpf_prog;
 
 
 #define NETDEV_HASHBITS    8
@@ -137,6 +139,8 @@ struct net {
 #endif
 	struct net_generic __rcu	*gen;
 
+	struct bpf_prog __rcu	*flow_dissector_prog;
+
 	/* Note : following structs are cache line aligned */
 #ifdef CONFIG_XFRM
 	struct netns_xfrm	xfrm;
@@ -149,6 +153,9 @@ struct net {
 #endif
 #if IS_ENABLED(CONFIG_CAN)
 	struct netns_can	can;
+#endif
+#ifdef CONFIG_XDP_SOCKETS
+	struct netns_xdp	xdp;
 #endif
 	struct sock		*diag_nlsk;
 	atomic_t		fnhe_genid;
