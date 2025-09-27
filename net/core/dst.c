@@ -21,6 +21,7 @@
 #include <linux/sched.h>
 #include <linux/prefetch.h>
 #include <net/lwtunnel.h>
+#include <net/xfrm.h>
 
 #include <net/dst.h>
 #include <net/dst_metadata.h>
@@ -57,20 +58,18 @@ const struct dst_metrics dst_default_metrics = {
 	 */
 	.refcnt = REFCOUNT_INIT(1),
 };
+EXPORT_SYMBOL(dst_default_metrics);
 
 void dst_init(struct dst_entry *dst, struct dst_ops *ops,
 	      struct net_device *dev, int initial_ref, int initial_obsolete,
 	      unsigned short flags)
 {
-	dst->child = NULL;
 	dst->dev = dev;
 	if (dev)
 		dev_hold(dev);
 	dst->ops = ops;
 	dst_init_metrics(dst, dst_default_metrics.metrics, true);
 	dst->expires = 0UL;
-	dst->path = dst;
-	dst->from = NULL;
 #ifdef CONFIG_XFRM
 	dst->xfrm = NULL;
 #endif
@@ -116,12 +115,17 @@ EXPORT_SYMBOL(dst_alloc);
 
 struct dst_entry *dst_destroy(struct dst_entry * dst)
 {
-	struct dst_entry *child;
+	struct dst_entry *child = NULL;
 
 	smp_rmb();
 
-	child = dst->child;
+#ifdef CONFIG_XFRM
+	if (dst->xfrm) {
+		struct xfrm_dst *xdst = (struct xfrm_dst *) dst;
 
+		child = xdst->child;
+	}
+#endif
 	if (!(dst->flags & DST_NOCOUNT))
 		dst_entries_add(dst->ops, -1);
 
@@ -322,3 +326,19 @@ metadata_dst_alloc_percpu(u8 optslen, enum metadata_type type, gfp_t flags)
 	return md_dst;
 }
 EXPORT_SYMBOL_GPL(metadata_dst_alloc_percpu);
+
+void metadata_dst_free_percpu(struct metadata_dst __percpu *md_dst)
+{
+	int cpu;
+
+#ifdef CONFIG_DST_CACHE
+	for_each_possible_cpu(cpu) {
+		struct metadata_dst *one_md_dst = per_cpu_ptr(md_dst, cpu);
+
+		if (one_md_dst->type == METADATA_IP_TUNNEL)
+			dst_cache_destroy(&one_md_dst->u.tun_info.dst_cache);
+	}
+#endif
+	free_percpu(md_dst);
+}
+EXPORT_SYMBOL_GPL(metadata_dst_free_percpu);

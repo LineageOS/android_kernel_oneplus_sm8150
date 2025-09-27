@@ -458,9 +458,7 @@ struct hmm_devmem *hmm_devmem_add_resource(const struct hmm_devmem_ops *ops,
 static inline void hmm_devmem_page_set_drvdata(struct page *page,
 					       unsigned long data)
 {
-	unsigned long *drvdata = (unsigned long *)&page->pgmap;
-
-	drvdata[1] = data;
+	page->hmm_data = data;
 }
 
 /*
@@ -469,11 +467,9 @@ static inline void hmm_devmem_page_set_drvdata(struct page *page,
  * @page: pointer to struct page
  * Return: driver data value
  */
-static inline unsigned long hmm_devmem_page_get_drvdata(struct page *page)
+static inline unsigned long hmm_devmem_page_get_drvdata(const struct page *page)
 {
-	unsigned long *drvdata = (unsigned long *)&page->pgmap;
-
-	return drvdata[1];
+	return page->hmm_data;
 }
 
 

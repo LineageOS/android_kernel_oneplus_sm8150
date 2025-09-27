@@ -6,7 +6,7 @@
  *
  */
 
-#include<linux/module.h>
+#include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/types.h>
 #include <linux/list.h>
@@ -59,13 +59,10 @@ int tcp_register_ulp(struct tcp_ulp_ops *ulp)
 	int ret = 0;
 
 	spin_lock(&tcp_ulp_list_lock);
-	if (tcp_ulp_find(ulp->name)) {
-		pr_notice("%s already registered or non-unique name\n",
-			  ulp->name);
+	if (tcp_ulp_find(ulp->name))
 		ret = -EEXIST;
-	} else {
+	else
 		list_add_tail_rcu(&ulp->list, &tcp_ulp_list);
-	}
 	spin_unlock(&tcp_ulp_list_lock);
 
 	return ret;
@@ -110,26 +107,35 @@ void tcp_cleanup_ulp(struct sock *sk)
 	module_put(icsk->icsk_ulp_ops->owner);
 }
 
-/* Change upper layer protocol for socket */
-int tcp_set_ulp(struct sock *sk, const char *name)
+static int __tcp_set_ulp(struct sock *sk, const struct tcp_ulp_ops *ulp_ops)
 {
 	struct inet_connection_sock *icsk = inet_csk(sk);
-	const struct tcp_ulp_ops *ulp_ops;
-	int err = 0;
+	int err;
 
+	err = -EEXIST;
 	if (icsk->icsk_ulp_ops)
-		return -EEXIST;
+		goto out_err;
+
+	err = ulp_ops->init(sk);
+	if (err)
+		goto out_err;
+
+	icsk->icsk_ulp_ops = ulp_ops;
+	return 0;
+out_err:
+	module_put(ulp_ops->owner);
+	return err;
+}
+
+int tcp_set_ulp(struct sock *sk, const char *name)
+{
+	const struct tcp_ulp_ops *ulp_ops;
+
+	sock_owned_by_me(sk);
 
 	ulp_ops = __tcp_ulp_find_autoload(name);
 	if (!ulp_ops)
 		return -ENOENT;
 
-	err = ulp_ops->init(sk);
-	if (err) {
-		module_put(ulp_ops->owner);
-		return err;
-	}
-
-	icsk->icsk_ulp_ops = ulp_ops;
-	return 0;
+	return __tcp_set_ulp(sk, ulp_ops);
 }

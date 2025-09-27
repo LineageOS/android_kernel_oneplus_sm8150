@@ -25,9 +25,10 @@
 #include "cache.h"
 
 struct ceph_aux_inode {
-	u64 		version;
-	struct timespec	mtime;
-	loff_t          size;
+	u64 	version;
+	u64	mtime_sec;
+	u64	mtime_nsec;
+        loff_t          size;
 };
 
 struct fscache_netfs ceph_cache_netfs = {
@@ -184,8 +185,9 @@ static enum fscache_checkaux ceph_fscache_inode_check_aux(
 
 	memset(&aux, 0, sizeof(aux));
 	aux.version = ci->i_version;
-	aux.mtime = inode->i_mtime;
-	aux.size = i_size_read(inode);
+	aux.mtime_sec = inode->i_mtime.tv_sec;
+	aux.mtime_nsec = inode->i_mtime.tv_nsec;
+        aux.size = i_size_read(inode);
 
 	if (memcmp(data, &aux, sizeof(aux)) != 0)
 		return FSCACHE_CHECKAUX_OBSOLETE;

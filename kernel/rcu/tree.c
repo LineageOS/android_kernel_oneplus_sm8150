@@ -254,6 +254,13 @@ void rcu_bh_qs(void)
 	}
 }
 
+void rcu_softirq_qs(void)
+{
+	rcu_sched_qs();
+	rcu_preempt_qs();
+	rcu_preempt_deferred_qs(current);
+}
+
 /*
  * Steal a bit from the bottom of ->dynticks for idle entry/exit
  * control.  Initially this is for TLB flushing.
@@ -443,6 +450,7 @@ static void rcu_momentary_dyntick_idle(void)
 {
 	raw_cpu_write(rcu_dynticks.rcu_need_heavy_qs, false);
 	rcu_dynticks_momentary_idle();
+	rcu_preempt_deferred_qs(current);
 }
 
 /*
@@ -791,6 +799,7 @@ static void rcu_eqs_enter_common(bool user)
 		do_nocb_deferred_wakeup(rdp);
 	}
 	rcu_prepare_for_idle();
+	rcu_preempt_deferred_qs(current);
 	__this_cpu_inc(disable_rcu_irq_enter);
 	rdtp->dynticks_nesting = 0; /* Breaks tracing momentarily. */
 	rcu_dynticks_eqs_enter(); /* After this, tracing works again. */
@@ -2909,6 +2918,12 @@ __rcu_process_callbacks(struct rcu_state *rsp)
 
 	WARN_ON_ONCE(!rdp->beenonline);
 
+	/* Report any deferred quiescent states if preemption enabled. */
+	if (!(preempt_count() & PREEMPT_MASK))
+		rcu_preempt_deferred_qs(current);
+	else if (rcu_preempt_need_deferred_qs(current))
+		resched_cpu(rdp->cpu); /* Provoke future context switch. */
+
 	/* Update RCU state based on any recent quiescent states. */
 	rcu_check_quiescent_state(rsp, rdp);
 
@@ -3876,6 +3891,7 @@ void rcu_report_dead(unsigned int cpu)
 	rcu_report_exp_rdp(&rcu_sched_state,
 			   this_cpu_ptr(rcu_sched_state.rda), true);
 	preempt_enable();
+	rcu_preempt_deferred_qs(current);
 	for_each_rcu_flavor(rsp)
 		rcu_cleanup_dying_idle_cpu(cpu, rsp);
 }

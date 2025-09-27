@@ -38,6 +38,8 @@ struct inet_timewait_death_row {
 	int			sysctl_max_tw_buckets;
 };
 
+struct tcp_fastopen_context;
+
 struct netns_ipv4 {
 #ifdef CONFIG_SYSCTL
 	struct ctl_table_header	*forw_hdr;
@@ -132,6 +134,13 @@ struct netns_ipv4 {
 	int sysctl_tcp_default_init_rwnd;
 	struct inet_timewait_death_row tcp_death_row;
 	int sysctl_max_syn_backlog;
+	int sysctl_tcp_fastopen;
+	const struct tcp_congestion_ops __rcu  *tcp_congestion_control;
+	struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
+	spinlock_t tcp_fastopen_ctx_lock;
+	unsigned int sysctl_tcp_fastopen_blackhole_timeout;
+	atomic_t tfo_active_disable_times;
+	unsigned long tfo_active_disable_stamp;
 
 #ifdef CONFIG_NET_L3_MASTER_DEV
 	int sysctl_udp_l3mdev_accept;

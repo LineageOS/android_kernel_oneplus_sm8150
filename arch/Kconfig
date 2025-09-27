@@ -199,6 +199,9 @@ config HAVE_OPTPROBES
 config HAVE_KPROBES_ON_FTRACE
 	bool
 
+config HAVE_FUNCTION_ERROR_INJECTION
+	bool
+
 config HAVE_NMI
 	bool
 
@@ -238,6 +241,10 @@ config ARCH_HAS_SET_MEMORY
 	bool
 
 config ARCH_HAS_CPU_FINALIZE_INIT
+	bool
+
+# Select if arch has all set_direct_map_invalid/default() functions
+config ARCH_HAS_SET_DIRECT_MAP
 	bool
 
 # Select if arch init_task initializer is different to init/init_task.c

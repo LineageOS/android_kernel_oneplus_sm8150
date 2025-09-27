@@ -103,21 +103,37 @@ slow:
 	goto got_it;
 }
 
-void *ns_get_path(struct path *path, struct task_struct *task,
-			const struct proc_ns_operations *ns_ops)
+void *ns_get_path_cb(struct path *path, ns_get_path_helper_t *ns_get_cb,
+		     void *private_data)
 {
-	struct ns_common *ns;
 	void *ret;
 
-again:
-	ns = ns_ops->get(task);
-	if (!ns)
-		return ERR_PTR(-ENOENT);
-
-	ret = __ns_get_path(path, ns);
-	if (IS_ERR(ret) && PTR_ERR(ret) == -EAGAIN)
-		goto again;
+	do {
+		struct ns_common *ns = ns_get_cb(private_data);
+		if (!ns)
+			return ERR_PTR(-ENOENT);
+		ret = __ns_get_path(path, ns);
+	} while (ret == ERR_PTR(-EAGAIN));
 	return ret;
+}
+
+struct ns_get_path_task_args {
+	const struct proc_ns_operations *ns_ops;
+	struct task_struct *task;
+};
+static struct ns_common *ns_get_path_task(void *private_data)
+{
+	struct ns_get_path_task_args *args = private_data;
+	return args->ns_ops->get(args->task);
+}
+void *ns_get_path(struct path *path, struct task_struct *task,
+		  const struct proc_ns_operations *ns_ops)
+{
+	struct ns_get_path_task_args args = {
+		.ns_ops	= ns_ops,
+		.task	= task,
+	};
+	return ns_get_path_cb(path, ns_get_path_task, &args);
 }
 
 int open_related_ns(struct ns_common *ns,
@@ -132,7 +148,7 @@ int open_related_ns(struct ns_common *ns,
 	if (fd < 0)
 		return fd;
 
-	while (1) {
+	do {
 		struct ns_common *relative;
 
 		relative = get_ns(ns);
@@ -142,10 +158,8 @@ int open_related_ns(struct ns_common *ns,
 		}
 
 		err = __ns_get_path(&path, relative);
-		if (IS_ERR(err) && PTR_ERR(err) == -EAGAIN)
-			continue;
-		break;
-	}
+	} while (err == ERR_PTR(-EAGAIN));
+
 	if (IS_ERR(err)) {
 		put_unused_fd(fd);
 		return PTR_ERR(err);

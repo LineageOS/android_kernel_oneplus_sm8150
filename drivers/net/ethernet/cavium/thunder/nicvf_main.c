@@ -541,6 +541,7 @@ static inline bool nicvf_xdp_rx(struct nicvf *nic, struct bpf_prog *prog,
 
 	xdp.data_hard_start = page_address(page);
 	xdp.data = (void *)cpu_addr;
+	xdp_set_data_meta_invalid(&xdp);
 	xdp.data_end = xdp.data + len;
 	orig_data = xdp.data;
 
@@ -1772,7 +1773,7 @@ static int nicvf_xdp_setup(struct nicvf *nic, struct bpf_prog *prog)
 	return ret;
 }
 
-static int nicvf_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
+static int nicvf_xdp(struct net_device *netdev, struct netdev_bpf *xdp)
 {
 	struct nicvf *nic = netdev_priv(netdev);
 
@@ -1787,7 +1788,6 @@ static int nicvf_xdp(struct net_device *netdev, struct netdev_xdp *xdp)
 	case XDP_SETUP_PROG:
 		return nicvf_xdp_setup(nic, xdp->prog);
 	case XDP_QUERY_PROG:
-		xdp->prog_attached = !!nic->xdp_prog;
 		xdp->prog_id = nic->xdp_prog ? nic->xdp_prog->aux->id : 0;
 		return 0;
 	default:
@@ -1805,7 +1805,7 @@ static const struct net_device_ops nicvf_netdev_ops = {
 	.ndo_tx_timeout         = nicvf_tx_timeout,
 	.ndo_fix_features       = nicvf_fix_features,
 	.ndo_set_features       = nicvf_set_features,
-	.ndo_xdp		= nicvf_xdp,
+	.ndo_bpf		= nicvf_xdp,
 };
 
 static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)

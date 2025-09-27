@@ -1433,6 +1433,9 @@ ld_skb_common:
 		}
 		break;
 
+	case BPF_ST | BPF_NOSPEC: /* speculation barrier */
+		break;
+
 	case BPF_ST | BPF_B | BPF_MEM:
 	case BPF_ST | BPF_H | BPF_MEM:
 	case BPF_ST | BPF_W | BPF_MEM:
@@ -1871,7 +1874,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 	unsigned int image_size;
 	u8 *image_ptr;
 
-	if (!bpf_jit_enable || !cpu_has_mips64r2)
+	if (!prog->jit_requested || !cpu_has_mips64r2)
 		return prog;
 
 	tmp = bpf_jit_blind_constants(prog);
