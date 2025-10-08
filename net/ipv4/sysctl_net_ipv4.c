@@ -26,6 +26,7 @@
 #include <net/inet_frag.h>
 #include <net/ping.h>
 #include <net/protocol.h>
+#include <net/netevent.h>
 
 static int zero;
 static int one = 1;
@@ -210,6 +211,8 @@ static int ipv4_ping_group_range(struct ctl_table *table, int write,
 static int proc_tcp_congestion_control(struct ctl_table *ctl, int write,
 				       void __user *buffer, size_t *lenp, loff_t *ppos)
 {
+	struct net *net = container_of(ctl->data, struct net,
+				       ipv4.tcp_congestion_control);
 	char val[TCP_CA_NAME_MAX];
 	struct ctl_table tbl = {
 		.data = val,
@@ -217,11 +220,11 @@ static int proc_tcp_congestion_control(struct ctl_table *ctl, int write,
 	};
 	int ret;
 
-	tcp_get_default_congestion_control(val);
+	tcp_get_default_congestion_control(net, val);
 
 	ret = proc_dostring(&tbl, write, buffer, lenp, ppos);
 	if (write && ret == 0)
-		ret = tcp_set_default_congestion_control(val);
+		ret = tcp_set_default_congestion_control(net, val);
 	return ret;
 }
 
@@ -262,10 +265,12 @@ static int proc_allowed_congestion_control(struct ctl_table *ctl,
 	return ret;
 }
 
-static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
+static int proc_tcp_fastopen_key(struct ctl_table *table, int write,
 				 void __user *buffer, size_t *lenp,
 				 loff_t *ppos)
 {
+	struct net *net = container_of(table->data, struct net,
+	    ipv4.sysctl_tcp_fastopen);
 	struct ctl_table tbl = { .maxlen = (TCP_FASTOPEN_KEY_LENGTH * 2 + 10) };
 	struct tcp_fastopen_context *ctxt;
 	u32  user_key[4]; /* 16 bytes, matching TCP_FASTOPEN_KEY_LENGTH */
@@ -277,7 +282,7 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
 		return -ENOMEM;
 
 	rcu_read_lock();
-	ctxt = rcu_dereference(tcp_fastopen_ctx);
+	ctxt = rcu_dereference(net->ipv4.tcp_fastopen_ctx);
 	if (ctxt)
 		memcpy(key, ctxt->key, TCP_FASTOPEN_KEY_LENGTH);
 	else
@@ -297,16 +302,11 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
 			ret = -EINVAL;
 			goto bad_key;
 		}
-		/* Generate a dummy secret but don't publish it. This
-		 * is needed so we don't regenerate a new key on the
-		 * first invocation of tcp_fastopen_cookie_gen
-		 */
-		tcp_fastopen_init_key_once(false);
 
 		for (i = 0; i < ARRAY_SIZE(user_key); i++)
 			key[i] = cpu_to_le32(user_key[i]);
 
-		tcp_fastopen_reset_cipher(key, TCP_FASTOPEN_KEY_LENGTH);
+		tcp_fastopen_reset_cipher(net, key, TCP_FASTOPEN_KEY_LENGTH);
 	}
 
 bad_key:
@@ -322,11 +322,13 @@ static int proc_tfo_blackhole_detect_timeout(struct ctl_table *table,
 					     void __user *buffer,
 					     size_t *lenp, loff_t *ppos)
 {
+	struct net *net = container_of(table->data, struct net,
+	    ipv4.sysctl_tcp_fastopen_blackhole_timeout);
 	int ret;
 
 	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 	if (write && ret == 0)
-		tcp_fastopen_active_timeout_reset();
+		atomic_set(&net->ipv4.tfo_active_disable_times, 0);
 
 	return ret;
 }
@@ -349,6 +351,23 @@ static int proc_tcp_available_ulp(struct ctl_table *ctl,
 	return ret;
 }
 
+#ifdef CONFIG_IP_ROUTE_MULTIPATH
+static int proc_fib_multipath_hash_policy(struct ctl_table *table, int write,
+					  void __user *buffer, size_t *lenp,
+					  loff_t *ppos)
+{
+	struct net *net = container_of(table->data, struct net,
+	    ipv4.sysctl_fib_multipath_hash_policy);
+	int ret;
+
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+	if (write && ret == 0)
+		call_netevent_notifiers(NETEVENT_IPV4_MPATH_HASH_UPDATE, net);
+
+	return ret;
+}
+#endif
+
 static struct ctl_table ipv4_table[] = {
 	{
 		.procname	= "tcp_retrans_collapse",
@@ -363,27 +382,6 @@ static struct ctl_table ipv4_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec
-	},
-	{
-		.procname	= "tcp_fastopen",
-		.data		= &sysctl_tcp_fastopen,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-	{
-		.procname	= "tcp_fastopen_key",
-		.mode		= 0600,
-		.maxlen		= ((TCP_FASTOPEN_KEY_LENGTH * 2) + 10),
-		.proc_handler	= proc_tcp_fastopen_key,
-	},
-	{
-		.procname	= "tcp_fastopen_blackhole_timeout_sec",
-		.data		= &sysctl_tcp_fastopen_blackhole_timeout,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= proc_tfo_blackhole_detect_timeout,
-		.extra1		= &zero,
 	},
 	{
 		.procname	= "tcp_abort_on_overflow",
@@ -537,12 +535,6 @@ static struct ctl_table ipv4_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
-	},
-	{
-		.procname	= "tcp_congestion_control",
-		.mode		= 0644,
-		.maxlen		= TCP_CA_NAME_MAX,
-		.proc_handler	= proc_tcp_congestion_control,
 	},
 	{
 		.procname	= "tcp_workaround_signed_windows",
@@ -968,6 +960,13 @@ static struct ctl_table ipv4_net_table[] = {
 	},
 #endif
 	{
+		.procname	= "tcp_congestion_control",
+		.data		= &init_net.ipv4.tcp_congestion_control,
+		.mode		= 0644,
+		.maxlen		= TCP_CA_NAME_MAX,
+		.proc_handler	= proc_tcp_congestion_control,
+	},
+	{
 		.procname	= "tcp_keepalive_time",
 		.data		= &init_net.ipv4.sysctl_tcp_keepalive_time,
 		.maxlen		= sizeof(int),
@@ -1077,6 +1076,28 @@ static struct ctl_table ipv4_net_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec
 	},
+	{
+		.procname	= "tcp_fastopen",
+		.data		= &init_net.ipv4.sysctl_tcp_fastopen,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "tcp_fastopen_key",
+		.mode		= 0600,
+		.data		= &init_net.ipv4.sysctl_tcp_fastopen,
+		.maxlen		= ((TCP_FASTOPEN_KEY_LENGTH * 2) + 10),
+		.proc_handler	= proc_tcp_fastopen_key,
+	},
+	{
+		.procname	= "tcp_fastopen_blackhole_timeout_sec",
+		.data		= &init_net.ipv4.sysctl_tcp_fastopen_blackhole_timeout,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_tfo_blackhole_detect_timeout,
+		.extra1		= &zero,
+	},
 #ifdef CONFIG_IP_ROUTE_MULTIPATH
 	{
 		.procname	= "fib_multipath_use_neigh",
@@ -1092,7 +1113,7 @@ static struct ctl_table ipv4_net_table[] = {
 		.data		= &init_net.ipv4.sysctl_fib_multipath_hash_policy,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
+		.proc_handler	= proc_fib_multipath_hash_policy,
 		.extra1		= &zero,
 		.extra2		= &one,
 	},

@@ -791,6 +791,8 @@ static void tcp_rtt_estimator(struct sock *sk, long mrtt_us)
 				tp->rttvar_us -= (tp->rttvar_us - tp->mdev_max_us) >> 2;
 			tp->rtt_seq = tp->snd_nxt;
 			tp->mdev_max_us = tcp_rto_min_us(sk);
+
+			tcp_bpf_rtt(sk);
 		}
 	} else {
 		/* no previous measure. */
@@ -799,6 +801,8 @@ static void tcp_rtt_estimator(struct sock *sk, long mrtt_us)
 		tp->rttvar_us = max(tp->mdev_us, tcp_rto_min_us(sk));
 		tp->mdev_max_us = tp->rttvar_us;
 		tp->rtt_seq = tp->snd_nxt;
+
+		tcp_bpf_rtt(sk);
 	}
 	tp->srtt_us = max(1U, srtt);
 }
@@ -901,6 +905,7 @@ void tcp_disable_fack(struct tcp_sock *tp)
 static void tcp_dsack_seen(struct tcp_sock *tp)
 {
 	tp->rx_opt.sack_ok |= TCP_DSACK_SEEN;
+	tp->dsack_dups++;
 }
 
 static void tcp_update_reordering(struct sock *sk, const int metric,
@@ -3633,6 +3638,22 @@ static void tcp_xmit_recovery(struct sock *sk, int rexmit)
 	tcp_xmit_retransmit_queue(sk);
 }
 
+/* Returns the number of packets newly acked or sacked by the current ACK */
+static u32 tcp_newly_delivered(struct sock *sk, u32 prior_delivered, int flag)
+{
+	const struct net *net = sock_net(sk);
+	struct tcp_sock *tp = tcp_sk(sk);
+	u32 delivered;
+
+	delivered = tp->delivered - prior_delivered;
+	NET_ADD_STATS(net, LINUX_MIB_TCPDELIVERED, delivered);
+	if (flag & FLAG_ECE) {
+		tp->delivered_ce += delivered;
+		NET_ADD_STATS(net, LINUX_MIB_TCPDELIVEREDCE, delivered);
+	}
+	return delivered;
+}
+
 /* This routine deals with incoming acks, but not outgoing ones. */
 static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
 {
@@ -3760,7 +3781,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
 	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP))
 		sk_dst_confirm(sk);
 
-	delivered = tp->delivered - delivered;	/* freshly ACKed or SACKed */
+	delivered = tcp_newly_delivered(sk, delivered, flag);
 	lost = tp->lost - lost;			/* freshly marked lost */
 	tcp_rate_gen(sk, delivered, lost, is_sack_reneg, sack_state.rate);
 	tcp_cong_control(sk, ack, delivered, flag, sack_state.rate);
@@ -3769,8 +3790,10 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
 
 no_queue:
 	/* If data was DSACKed, see if we can undo a cwnd reduction. */
-	if (flag & FLAG_DSACKING_ACK)
+	if (flag & FLAG_DSACKING_ACK) {
 		tcp_fastretrans_alert(sk, acked, is_dupack, &flag, &rexmit);
+		tcp_newly_delivered(sk, delivered, flag);
+	}
 	/* If this ack opens up a zero window, clear backoff.  It was
 	 * being used to time the probes, and is probably far higher than
 	 * it needs to be for normal retransmission.
@@ -3794,6 +3817,7 @@ old_ack:
 		flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una,
 						&sack_state);
 		tcp_fastretrans_alert(sk, acked, is_dupack, &flag, &rexmit);
+		tcp_newly_delivered(sk, delivered, flag);
 		tcp_xmit_recovery(sk, rexmit);
 	}
 
@@ -3816,6 +3840,49 @@ static void tcp_parse_fastopen_option(int len, const unsigned char *cookie,
 		len = -1;
 	foc->len = len;
 	foc->exp = exp_opt;
+}
+
+/* Try to parse the MSS option from the TCP header. Return 0 on failure, clamped
+ * value on success.
+ */
+static u16 tcp_parse_mss_option(const struct tcphdr *th, u16 user_mss)
+{
+	const unsigned char *ptr = (const unsigned char *)(th + 1);
+	int length = (th->doff * 4) - sizeof(struct tcphdr);
+	u16 mss = 0;
+
+	while (length > 0) {
+		int opcode = *ptr++;
+		int opsize;
+
+		switch (opcode) {
+		case TCPOPT_EOL:
+			return mss;
+		case TCPOPT_NOP:	/* Ref: RFC 793 section 3.1 */
+			length--;
+			continue;
+		default:
+			if (length < 2)
+				return mss;
+			opsize = *ptr++;
+			if (opsize < 2) /* "silly options" */
+				return mss;
+			if (opsize > length)
+				return mss;	/* fail on partial options */
+			if (opcode == TCPOPT_MSS && opsize == TCPOLEN_MSS) {
+				u16 in_mss = get_unaligned_be16(ptr);
+
+				if (in_mss) {
+					if (user_mss && user_mss < in_mss)
+						in_mss = user_mss;
+					mss = in_mss;
+				}
+			}
+			ptr += opsize - 2;
+			length -= opsize;
+		}
+	}
+	return mss;
 }
 
 /* Look for tcp options. Normally only called on SYN and SYNACK packets.
@@ -5675,19 +5742,12 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
 		security_inet_conn_established(sk, skb);
 	}
 
-	/* Make sure socket is routed, for correct metrics.  */
-	icsk->icsk_af_ops->rebuild_header(sk);
-
-	tcp_init_metrics(sk);
-	tcp_call_bpf(sk, BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB);
-	tcp_init_congestion_control(sk);
+	tcp_init_transfer(sk, BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB);
 
 	/* Prevent spurious tcp_cwnd_restart() on first data
 	 * packet.
 	 */
 	tp->lsndtime = tcp_jiffies32;
-
-	tcp_init_buffer_space(sk);
 
 	if (sock_flag(sk, SOCK_KEEPOPEN))
 		inet_csk_reset_keepalive_timer(sk, keepalive_time_when(tp));
@@ -5855,7 +5915,6 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
 		if (tcp_is_sack(tp) && sysctl_tcp_fack)
 			tcp_enable_fack(tp);
 
-		tcp_mtup_init(sk);
 		tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
 		tcp_initialize_rcv_mss(sk);
 
@@ -6084,14 +6143,8 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
 			inet_csk(sk)->icsk_retransmits = 0;
 			reqsk_fastopen_remove(sk, req, false);
 		} else {
-			/* Make sure socket is routed, for correct metrics. */
-			icsk->icsk_af_ops->rebuild_header(sk);
-			tcp_call_bpf(sk, BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
-			tcp_init_congestion_control(sk);
-
-			tcp_mtup_init(sk);
+			tcp_init_transfer(sk, BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
 			tp->copied_seq = tp->rcv_nxt;
-			tcp_init_buffer_space(sk);
 		}
 		smp_mb();
 		tcp_set_state(sk, TCP_ESTABLISHED);
@@ -6121,8 +6174,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
 			 * are sent out.
 			 */
 			tcp_rearm_rto(sk);
-		} else
-			tcp_init_metrics(sk);
+		}
 
 		if (!inet_csk(sk)->icsk_ca_ops->cong_control)
 			tcp_update_pacing_rate(sk);
@@ -6359,9 +6411,7 @@ EXPORT_SYMBOL(inet_reqsk_alloc);
 /*
  * Return true if a syncookie should be sent
  */
-static bool tcp_syn_flood_action(const struct sock *sk,
-				 const struct sk_buff *skb,
-				 const char *proto)
+static bool tcp_syn_flood_action(const struct sock *sk, const char *proto)
 {
 	struct request_sock_queue *queue = &inet_csk(sk)->icsk_accept_queue;
 	const char *msg = "Dropping request";
@@ -6380,8 +6430,8 @@ static bool tcp_syn_flood_action(const struct sock *sk,
 	if (!queue->synflood_warned &&
 	    net->ipv4.sysctl_tcp_syncookies != 2 &&
 	    xchg(&queue->synflood_warned, 1) == 0)
-		pr_info("%s: Possible SYN flooding on port %d. %s.  Check SNMP counters.\n",
-			proto, ntohs(tcp_hdr(skb)->dest), msg);
+		net_info_ratelimited("%s: Possible SYN flooding on port %d. %s.  Check SNMP counters.\n",
+				     proto, sk->sk_num, msg);
 
 	return want_cookie;
 }
@@ -6402,6 +6452,36 @@ static void tcp_reqsk_record_syn(const struct sock *sk,
 		}
 	}
 }
+
+/* If a SYN cookie is required and supported, returns a clamped MSS value to be
+ * used for SYN cookie generation.
+ */
+u16 tcp_get_syncookie_mss(struct request_sock_ops *rsk_ops,
+			  const struct tcp_request_sock_ops *af_ops,
+			  struct sock *sk, struct tcphdr *th)
+{
+	struct tcp_sock *tp = tcp_sk(sk);
+	u16 mss;
+
+	if (sock_net(sk)->ipv4.sysctl_tcp_syncookies != 2 &&
+	    !inet_csk_reqsk_queue_is_full(sk))
+		return 0;
+
+	if (!tcp_syn_flood_action(sk, rsk_ops->slab_name))
+		return 0;
+
+	if (sk_acceptq_is_full(sk)) {
+		NET_INC_STATS(sock_net(sk), LINUX_MIB_LISTENOVERFLOWS);
+		return 0;
+	}
+
+	mss = tcp_parse_mss_option(th, tp->rx_opt.user_mss);
+	if (!mss)
+		mss = af_ops->mss_clamp;
+
+	return mss;
+}
+EXPORT_SYMBOL_GPL(tcp_get_syncookie_mss);
 
 int tcp_conn_request(struct request_sock_ops *rsk_ops,
 		     const struct tcp_request_sock_ops *af_ops,
@@ -6424,7 +6504,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
 	 */
 	if ((net->ipv4.sysctl_tcp_syncookies == 2 ||
 	     inet_csk_reqsk_queue_is_full(sk)) && !isn) {
-		want_cookie = tcp_syn_flood_action(sk, skb, rsk_ops->slab_name);
+		want_cookie = tcp_syn_flood_action(sk, rsk_ops->slab_name);
 		if (!want_cookie)
 			goto drop;
 	}

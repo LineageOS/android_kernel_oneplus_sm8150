@@ -612,6 +612,7 @@ tcp_fastopen_blackhole_timeout_sec - INTEGER
 	This time period will grow exponentially when more blackhole issues
 	get detected right after Fastopen is re-enabled and will reset to
 	initial value when the blackhole issue goes away.
+	0 to disable the blackhole detection.
 	By default, it is set to 1hr.
 
 tcp_fwmark_accept - BOOLEAN
@@ -1389,6 +1390,13 @@ flowlabel_reflect - BOOLEAN
 	FALSE: disabled
 	Default: FALSE
 
+fib_multipath_hash_policy - INTEGER
+	Controls which hash policy to use for multipath routes.
+	Default: 0 (Layer 3)
+	Possible values:
+	0 - Layer 3 (source and destination addresses plus flow label)
+	1 - Layer 4 (standard 5-tuple)
+
 anycast_src_echo_reply - BOOLEAN
 	Controls the use of anycast addresses as source addresses for ICMPv6
 	echo reply
@@ -1411,6 +1419,30 @@ mld_qrv - INTEGER
 	Controls the MLD query robustness variable (see RFC3810 9.1).
 	Default: 2 (as specified by RFC3810 9.1)
 	Minimum: 1 (as specified by RFC6636 4.5)
+
+max_dst_opts_cnt - INTEGER
+	Maximum number of non-padding TLVs allowed in a Destination
+	options extension header. If this value is less than zero
+	then unknown options are disallowed and the number of known
+	TLVs allowed is the absolute value of this number.
+	Default: 8
+
+max_hbh_opts_cnt - INTEGER
+	Maximum number of non-padding TLVs allowed in a Hop-by-Hop
+	options extension header. If this value is less than zero
+	then unknown options are disallowed and the number of known
+	TLVs allowed is the absolute value of this number.
+	Default: 8
+
+max dst_opts_len - INTEGER
+	Maximum length allowed for a Destination options extension
+	header.
+	Default: INT_MAX (unlimited)
+
+max hbh_opts_len - INTEGER
+	Maximum length allowed for a Hop-by-Hop options extension
+	header.
+	Default: INT_MAX (unlimited)
 
 IPv6 Fragmentation:
 

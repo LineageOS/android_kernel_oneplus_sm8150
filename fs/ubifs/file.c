@@ -1092,14 +1092,14 @@ static void do_attr_changes(struct inode *inode, const struct iattr *attr)
 	if (attr->ia_valid & ATTR_GID)
 		inode->i_gid = attr->ia_gid;
 	if (attr->ia_valid & ATTR_ATIME)
-		inode->i_atime = timespec_trunc(attr->ia_atime,
-						inode->i_sb->s_time_gran);
+		inode->i_atime = timespec64_trunc(attr->ia_atime,
+						  inode->i_sb->s_time_gran);
 	if (attr->ia_valid & ATTR_MTIME)
-		inode->i_mtime = timespec_trunc(attr->ia_mtime,
-						inode->i_sb->s_time_gran);
+		inode->i_mtime = timespec64_trunc(attr->ia_mtime,
+						  inode->i_sb->s_time_gran);
 	if (attr->ia_valid & ATTR_CTIME)
-		inode->i_ctime = timespec_trunc(attr->ia_ctime,
-						inode->i_sb->s_time_gran);
+		inode->i_ctime = timespec64_trunc(attr->ia_ctime,
+						  inode->i_sb->s_time_gran);
 	if (attr->ia_valid & ATTR_MODE) {
 		umode_t mode = attr->ia_mode;
 
@@ -1372,10 +1372,10 @@ out:
  * granularity, they are not updated. This is an optimization.
  */
 static inline int mctime_update_needed(const struct inode *inode,
-				       const struct timespec *now)
+				       const struct timespec64 *now)
 {
-	if (!timespec_equal(&inode->i_mtime, now) ||
-	    !timespec_equal(&inode->i_ctime, now))
+	if (!timespec64_equal(&inode->i_mtime, now) ||
+	    !timespec64_equal(&inode->i_ctime, now))
 		return 1;
 	return 0;
 }
@@ -1387,7 +1387,7 @@ static inline int mctime_update_needed(const struct inode *inode,
  *
  * This function updates time of the inode.
  */
-int ubifs_update_time(struct inode *inode, struct timespec *time,
+int ubifs_update_time(struct inode *inode, struct timespec64 *time,
 			     int flags)
 {
 	struct ubifs_inode *ui = ubifs_inode(inode);
@@ -1431,7 +1431,7 @@ int ubifs_update_time(struct inode *inode, struct timespec *time,
  */
 static int update_mctime(struct inode *inode)
 {
-	struct timespec now = current_time(inode);
+	struct timespec64 now = current_time(inode);
 	struct ubifs_inode *ui = ubifs_inode(inode);
 	struct ubifs_info *c = inode->i_sb->s_fs_info;
 
@@ -1525,7 +1525,7 @@ static int ubifs_vm_page_mkwrite(struct vm_fault *vmf)
 	struct page *page = vmf->page;
 	struct inode *inode = file_inode(vmf->vma->vm_file);
 	struct ubifs_info *c = inode->i_sb->s_fs_info;
-	struct timespec now = current_time(inode);
+	struct timespec64 now = current_time(inode);
 	struct ubifs_budget_req req = { .new_page = 1 };
 	int err, update_time;
 

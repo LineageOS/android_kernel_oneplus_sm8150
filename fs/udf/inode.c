@@ -1623,7 +1623,7 @@ static int udf_sync_inode(struct inode *inode)
 	return udf_update_inode(inode, 1);
 }
 
-static void udf_adjust_time(struct udf_inode_info *iinfo, struct timespec time)
+static void udf_adjust_time(struct udf_inode_info *iinfo, struct timespec64 time)
 {
 	if (iinfo->i_crtime.tv_sec > time.tv_sec ||
 	    (iinfo->i_crtime.tv_sec == time.tv_sec &&

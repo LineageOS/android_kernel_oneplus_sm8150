@@ -404,7 +404,7 @@ static int inode_set(struct inode *inode, void *opaque)
 	} else if (search->ino == INCFS_PENDING_READS_INODE) {
 		/* It's an inode for .pending_reads pseudo file. */
 
-		inode->i_ctime = (struct timespec){};
+		inode->i_ctime = (struct timespec64){};
 		inode->i_mtime = inode->i_ctime;
 		inode->i_atime = inode->i_ctime;
 		inode->i_size = 0;
@@ -419,7 +419,7 @@ static int inode_set(struct inode *inode, void *opaque)
 	} else if (search->ino == INCFS_LOG_INODE) {
 		/* It's an inode for .log pseudo file. */
 
-		inode->i_ctime = (struct timespec){};
+		inode->i_ctime = (struct timespec64){};
 		inode->i_mtime = inode->i_ctime;
 		inode->i_atime = inode->i_ctime;
 		inode->i_size = 0;

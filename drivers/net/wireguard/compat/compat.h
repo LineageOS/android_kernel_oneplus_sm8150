@@ -781,7 +781,7 @@ static inline void crypto_xor_cpy(u8 *dst, const u8 *src1, const u8 *src2,
 #define totalram_pages() totalram_pages
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 18, 0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 struct __kernel_timespec {
 	int64_t tv_sec, tv_nsec;
 };

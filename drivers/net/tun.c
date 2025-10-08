@@ -598,7 +598,6 @@ static void tun_detach(struct tun_file *tfile, bool clean)
 static void tun_detach_all(struct net_device *dev)
 {
 	struct tun_struct *tun = netdev_priv(dev);
-	struct bpf_prog *xdp_prog = rtnl_dereference(tun->xdp_prog);
 	struct tun_file *tfile, *tmp;
 	int i, n = tun->numqueues;
 
@@ -630,9 +629,6 @@ static void tun_detach_all(struct net_device *dev)
 		sock_put(&tfile->sk);
 	}
 	BUG_ON(tun->numdisabled != 0);
-
-	if (xdp_prog)
-		bpf_prog_put(xdp_prog);
 
 	if (tun->flags & IFF_PERSIST)
 		module_put(THIS_MODULE);
@@ -1043,14 +1039,13 @@ static u32 tun_xdp_query(struct net_device *dev)
 	return 0;
 }
 
-static int tun_xdp(struct net_device *dev, struct netdev_xdp *xdp)
+static int tun_xdp(struct net_device *dev, struct netdev_bpf *xdp)
 {
 	switch (xdp->command) {
 	case XDP_SETUP_PROG:
 		return tun_xdp_set(dev, xdp->prog, xdp->extack);
 	case XDP_QUERY_PROG:
 		xdp->prog_id = tun_xdp_query(dev);
-		xdp->prog_attached = !!xdp->prog_id;
 		return 0;
 	default:
 		return -EINVAL;
@@ -1087,7 +1082,7 @@ static const struct net_device_ops tap_netdev_ops = {
 	.ndo_features_check	= passthru_features_check,
 	.ndo_set_rx_headroom	= tun_set_headroom,
 	.ndo_get_stats64	= tun_net_get_stats64,
-	.ndo_xdp		= tun_xdp,
+	.ndo_bpf		= tun_xdp,
 };
 
 static void tun_flow_init(struct tun_struct *tun)
@@ -1335,6 +1330,7 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
 
 		xdp.data_hard_start = buf;
 		xdp.data = buf + pad;
+		xdp_set_data_meta_invalid(&xdp);
 		xdp.data_end = xdp.data + len;
 		orig_data = xdp.data;
 		act = bpf_prog_run_xdp(xdp_prog, &xdp);

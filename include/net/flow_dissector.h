@@ -213,9 +213,8 @@ enum flow_dissector_key_id {
 };
 
 #define FLOW_DISSECTOR_F_PARSE_1ST_FRAG		BIT(0)
-#define FLOW_DISSECTOR_F_STOP_AT_L3		BIT(1)
-#define FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL	BIT(2)
-#define FLOW_DISSECTOR_F_STOP_AT_ENCAP		BIT(3)
+#define FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL	BIT(1)
+#define FLOW_DISSECTOR_F_STOP_AT_ENCAP		BIT(2)
 
 struct flow_dissector_key {
 	enum flow_dissector_key_id key_id;
@@ -226,6 +225,11 @@ struct flow_dissector_key {
 struct flow_dissector {
 	unsigned int used_keys; /* each bit repesents presence of one key id */
 	unsigned short int offset[FLOW_DISSECTOR_KEY_MAX];
+};
+
+struct flow_keys_basic {
+	struct flow_dissector_key_control control;
+	struct flow_dissector_key_basic basic;
 };
 
 struct flow_keys {
@@ -246,7 +250,7 @@ __be32 flow_get_u32_src(const struct flow_keys *flow);
 __be32 flow_get_u32_dst(const struct flow_keys *flow);
 
 extern struct flow_dissector flow_keys_dissector;
-extern struct flow_dissector flow_keys_buf_dissector;
+extern struct flow_dissector flow_keys_basic_dissector;
 
 /* struct flow_keys_digest:
  *
@@ -290,5 +294,12 @@ flow_dissector_init_keys(struct flow_dissector_key_control *key_control,
 	memset(key_control, 0, sizeof(*key_control));
 	memset(key_basic, 0, sizeof(*key_basic));
 }
+
+struct bpf_flow_dissector {
+	struct bpf_flow_keys	*flow_keys;
+	const struct sk_buff	*skb;
+	void			*data;
+	void			*data_end;
+};
 
 #endif
