@@ -36,6 +36,7 @@ int iris_recovery_check_state = -1;
 extern int oplus_underbrightness_alpha;
 extern int msm_drm_notifier_call_chain(unsigned long val, void *v);
 extern int cmp_display_panel_name(char *istr);
+extern int opticalfp_irq_handler(struct fp_underscreen_info *fp_tpinfo);
 bool oplus_dc_v2_on = false;
 int oplus_dc2_alpha;
 int oplus_dimlayer_bl_enable_v3 = 0;
@@ -2068,6 +2069,11 @@ static ssize_t oplus_display_notify_fp_press(struct device *dev,
 	}
 
 	pr_err("notify fingerpress %s\n", onscreenfp_status ? "on" : "off");
+	if (onscreenfp_status == 0) {
+		struct fp_underscreen_info fp_tpinfo;
+		memset(&fp_tpinfo, 0, sizeof(fp_tpinfo));
+		opticalfp_irq_handler(&fp_tpinfo);
+	}
 	if (OPLUS_DISPLAY_AOD_SCENE == get_oplus_display_scene()) {
 		if (onscreenfp_status) {
 			on_time = ktime_get();
