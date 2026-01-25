@@ -117,6 +117,8 @@ static bool is_simm32(s64 value)
 #define IA32_JLE 0x7E
 #define IA32_JG  0x7F
 
+#define COND_JMP_OPCODE_INVALID	(0xFF)
+
 /*
  * Map eBPF registers to IA32 32bit registers or stack scratch space.
  *
@@ -175,18 +177,12 @@ static const u8 bpf2ia32[][2] = {
 #define SCRATCH_SIZE 96
 
 /* Total stack size used in JITed code */
-#define _STACK_SIZE \
-	(stack_depth + \
-	 + SCRATCH_SIZE + \
-	 + 4 /* Extra space for skb_copy_bits buffer */)
+#define _STACK_SIZE	(stack_depth + SCRATCH_SIZE)
 
 #define STACK_SIZE ALIGN(_STACK_SIZE, STACK_ALIGNMENT)
 
 /* Get the offset of eBPF REGISTERs stored on scratch space. */
 #define STACK_VAR(off) (off)
-
-/* Offset of skb_copy_bits buffer */
-#define SKB_BUFFER STACK_VAR(SCRATCH_SIZE)
 
 /* Encode 'dst_reg' register into IA32 opcode 'byte' */
 static u8 add_1reg(u8 byte, u32 dst_reg)
@@ -257,13 +253,14 @@ static inline void emit_ia32_mov_r(const u8 dst, const u8 src, bool dstk,
 /* dst = src */
 static inline void emit_ia32_mov_r64(const bool is64, const u8 dst[],
 				     const u8 src[], bool dstk,
-				     bool sstk, u8 **pprog)
+				     bool sstk, u8 **pprog,
+				     const struct bpf_prog_aux *aux)
 {
 	emit_ia32_mov_r(dst_lo, src_lo, dstk, sstk, pprog);
 	if (is64)
 		/* complete 8 byte move */
 		emit_ia32_mov_r(dst_hi, src_hi, dstk, sstk, pprog);
-	else
+	else if (!aux->verifier_zext)
 		/* zero out high 4 bytes */
 		emit_ia32_mov_i(dst_hi, 0, dstk, pprog);
 }
@@ -317,7 +314,8 @@ static inline void emit_ia32_mul_r(const u8 dst, const u8 src, bool dstk,
 }
 
 static inline void emit_ia32_to_le_r64(const u8 dst[], s32 val,
-					 bool dstk, u8 **pprog)
+					 bool dstk, u8 **pprog,
+					 const struct bpf_prog_aux *aux)
 {
 	u8 *prog = *pprog;
 	int cnt = 0;
@@ -338,12 +336,14 @@ static inline void emit_ia32_to_le_r64(const u8 dst[], s32 val,
 		 */
 		EMIT2(0x0F, 0xB7);
 		EMIT1(add_2reg(0xC0, dreg_lo, dreg_lo));
-		/* xor dreg_hi,dreg_hi */
-		EMIT2(0x33, add_2reg(0xC0, dreg_hi, dreg_hi));
+		if (!aux->verifier_zext)
+			/* xor dreg_hi,dreg_hi */
+			EMIT2(0x33, add_2reg(0xC0, dreg_hi, dreg_hi));
 		break;
 	case 32:
-		/* xor dreg_hi,dreg_hi */
-		EMIT2(0x33, add_2reg(0xC0, dreg_hi, dreg_hi));
+		if (!aux->verifier_zext)
+			/* xor dreg_hi,dreg_hi */
+			EMIT2(0x33, add_2reg(0xC0, dreg_hi, dreg_hi));
 		break;
 	case 64:
 		/* nop */
@@ -362,7 +362,8 @@ static inline void emit_ia32_to_le_r64(const u8 dst[], s32 val,
 }
 
 static inline void emit_ia32_to_be_r64(const u8 dst[], s32 val,
-				       bool dstk, u8 **pprog)
+				       bool dstk, u8 **pprog,
+				       const struct bpf_prog_aux *aux)
 {
 	u8 *prog = *pprog;
 	int cnt = 0;
@@ -384,16 +385,18 @@ static inline void emit_ia32_to_be_r64(const u8 dst[], s32 val,
 		EMIT2(0x0F, 0xB7);
 		EMIT1(add_2reg(0xC0, dreg_lo, dreg_lo));
 
-		/* xor dreg_hi,dreg_hi */
-		EMIT2(0x33, add_2reg(0xC0, dreg_hi, dreg_hi));
+		if (!aux->verifier_zext)
+			/* xor dreg_hi,dreg_hi */
+			EMIT2(0x33, add_2reg(0xC0, dreg_hi, dreg_hi));
 		break;
 	case 32:
 		/* Emit 'bswap eax' to swap lower 4 bytes */
 		EMIT1(0x0F);
 		EMIT1(add_1reg(0xC8, dreg_lo));
 
-		/* xor dreg_hi,dreg_hi */
-		EMIT2(0x33, add_2reg(0xC0, dreg_hi, dreg_hi));
+		if (!aux->verifier_zext)
+			/* xor dreg_hi,dreg_hi */
+			EMIT2(0x33, add_2reg(0xC0, dreg_hi, dreg_hi));
 		break;
 	case 64:
 		/* Emit 'bswap eax' to swap lower 4 bytes */
@@ -573,7 +576,7 @@ static inline void emit_ia32_alu_r(const bool is64, const bool hi, const u8 op,
 static inline void emit_ia32_alu_r64(const bool is64, const u8 op,
 				     const u8 dst[], const u8 src[],
 				     bool dstk,  bool sstk,
-				     u8 **pprog)
+				     u8 **pprog, const struct bpf_prog_aux *aux)
 {
 	u8 *prog = *pprog;
 
@@ -581,7 +584,7 @@ static inline void emit_ia32_alu_r64(const bool is64, const u8 op,
 	if (is64)
 		emit_ia32_alu_r(is64, true, op, dst_hi, src_hi, dstk, sstk,
 				&prog);
-	else
+	else if (!aux->verifier_zext)
 		emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
 	*pprog = prog;
 }
@@ -672,7 +675,8 @@ static inline void emit_ia32_alu_i(const bool is64, const bool hi, const u8 op,
 /* ALU operation (64 bit) */
 static inline void emit_ia32_alu_i64(const bool is64, const u8 op,
 				     const u8 dst[], const u32 val,
-				     bool dstk, u8 **pprog)
+				     bool dstk, u8 **pprog,
+				     const struct bpf_prog_aux *aux)
 {
 	u8 *prog = *pprog;
 	u32 hi = 0;
@@ -683,7 +687,7 @@ static inline void emit_ia32_alu_i64(const bool is64, const u8 op,
 	emit_ia32_alu_i(is64, false, op, dst_lo, val, dstk, &prog);
 	if (is64)
 		emit_ia32_alu_i(is64, true, op, dst_hi, hi, dstk, &prog);
-	else
+	else if (!aux->verifier_zext)
 		emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
 
 	*pprog = prog;
@@ -704,19 +708,12 @@ static inline void emit_ia32_neg64(const u8 dst[], bool dstk, u8 **pprog)
 		      STACK_VAR(dst_hi));
 	}
 
-	/* xor ecx,ecx */
-	EMIT2(0x31, add_2reg(0xC0, IA32_ECX, IA32_ECX));
-	/* sub dreg_lo,ecx */
-	EMIT2(0x2B, add_2reg(0xC0, dreg_lo, IA32_ECX));
-	/* mov dreg_lo,ecx */
-	EMIT2(0x89, add_2reg(0xC0, dreg_lo, IA32_ECX));
-
-	/* xor ecx,ecx */
-	EMIT2(0x31, add_2reg(0xC0, IA32_ECX, IA32_ECX));
-	/* sbb dreg_hi,ecx */
-	EMIT2(0x19, add_2reg(0xC0, dreg_hi, IA32_ECX));
-	/* mov dreg_hi,ecx */
-	EMIT2(0x89, add_2reg(0xC0, dreg_hi, IA32_ECX));
+	/* neg dreg_lo */
+	EMIT2(0xF7, add_1reg(0xD8, dreg_lo));
+	/* adc dreg_hi,0x0 */
+	EMIT3(0x83, add_1reg(0xD0, dreg_hi), 0x00);
+	/* neg dreg_hi */
+	EMIT2(0xF7, add_1reg(0xD8, dreg_hi));
 
 	if (dstk) {
 		/* mov dword ptr [ebp+off],dreg_lo */
@@ -735,9 +732,6 @@ static inline void emit_ia32_lsh_r64(const u8 dst[], const u8 src[],
 {
 	u8 *prog = *pprog;
 	int cnt = 0;
-	static int jmp_label1 = -1;
-	static int jmp_label2 = -1;
-	static int jmp_label3 = -1;
 	u8 dreg_lo = dstk ? IA32_EAX : dst_lo;
 	u8 dreg_hi = dstk ? IA32_EDX : dst_hi;
 
@@ -756,78 +750,22 @@ static inline void emit_ia32_lsh_r64(const u8 dst[], const u8 src[],
 		/* mov ecx,src_lo */
 		EMIT2(0x8B, add_2reg(0xC0, src_lo, IA32_ECX));
 
+	/* shld dreg_hi,dreg_lo,cl */
+	EMIT3(0x0F, 0xA5, add_2reg(0xC0, dreg_hi, dreg_lo));
+	/* shl dreg_lo,cl */
+	EMIT2(0xD3, add_1reg(0xE0, dreg_lo));
+
+	/* if ecx >= 32, mov dreg_lo into dreg_hi and clear dreg_lo */
+
 	/* cmp ecx,32 */
 	EMIT3(0x83, add_1reg(0xF8, IA32_ECX), 32);
-	/* Jumps when >= 32 */
-	if (is_imm8(jmp_label(jmp_label1, 2)))
-		EMIT2(IA32_JAE, jmp_label(jmp_label1, 2));
-	else
-		EMIT2_off32(0x0F, IA32_JAE + 0x10, jmp_label(jmp_label1, 6));
+	/* skip the next two instructions (4 bytes) when < 32 */
+	EMIT2(IA32_JB, 4);
 
-	/* < 32 */
-	/* shl dreg_hi,cl */
-	EMIT2(0xD3, add_1reg(0xE0, dreg_hi));
-	/* mov ebx,dreg_lo */
-	EMIT2(0x8B, add_2reg(0xC0, dreg_lo, IA32_EBX));
-	/* shl dreg_lo,cl */
-	EMIT2(0xD3, add_1reg(0xE0, dreg_lo));
-
-	/* IA32_ECX = -IA32_ECX + 32 */
-	/* neg ecx */
-	EMIT2(0xF7, add_1reg(0xD8, IA32_ECX));
-	/* add ecx,32 */
-	EMIT3(0x83, add_1reg(0xC0, IA32_ECX), 32);
-
-	/* shr ebx,cl */
-	EMIT2(0xD3, add_1reg(0xE8, IA32_EBX));
-	/* or dreg_hi,ebx */
-	EMIT2(0x09, add_2reg(0xC0, dreg_hi, IA32_EBX));
-
-	/* goto out; */
-	if (is_imm8(jmp_label(jmp_label3, 2)))
-		EMIT2(0xEB, jmp_label(jmp_label3, 2));
-	else
-		EMIT1_off32(0xE9, jmp_label(jmp_label3, 5));
-
-	/* >= 32 */
-	if (jmp_label1 == -1)
-		jmp_label1 = cnt;
-
-	/* cmp ecx,64 */
-	EMIT3(0x83, add_1reg(0xF8, IA32_ECX), 64);
-	/* Jumps when >= 64 */
-	if (is_imm8(jmp_label(jmp_label2, 2)))
-		EMIT2(IA32_JAE, jmp_label(jmp_label2, 2));
-	else
-		EMIT2_off32(0x0F, IA32_JAE + 0x10, jmp_label(jmp_label2, 6));
-
-	/* >= 32 && < 64 */
-	/* sub ecx,32 */
-	EMIT3(0x83, add_1reg(0xE8, IA32_ECX), 32);
-	/* shl dreg_lo,cl */
-	EMIT2(0xD3, add_1reg(0xE0, dreg_lo));
 	/* mov dreg_hi,dreg_lo */
 	EMIT2(0x89, add_2reg(0xC0, dreg_hi, dreg_lo));
-
 	/* xor dreg_lo,dreg_lo */
 	EMIT2(0x33, add_2reg(0xC0, dreg_lo, dreg_lo));
-
-	/* goto out; */
-	if (is_imm8(jmp_label(jmp_label3, 2)))
-		EMIT2(0xEB, jmp_label(jmp_label3, 2));
-	else
-		EMIT1_off32(0xE9, jmp_label(jmp_label3, 5));
-
-	/* >= 64 */
-	if (jmp_label2 == -1)
-		jmp_label2 = cnt;
-	/* xor dreg_lo,dreg_lo */
-	EMIT2(0x33, add_2reg(0xC0, dreg_lo, dreg_lo));
-	/* xor dreg_hi,dreg_hi */
-	EMIT2(0x33, add_2reg(0xC0, dreg_hi, dreg_hi));
-
-	if (jmp_label3 == -1)
-		jmp_label3 = cnt;
 
 	if (dstk) {
 		/* mov dword ptr [ebp+off],dreg_lo */
@@ -847,9 +785,6 @@ static inline void emit_ia32_arsh_r64(const u8 dst[], const u8 src[],
 {
 	u8 *prog = *pprog;
 	int cnt = 0;
-	static int jmp_label1 = -1;
-	static int jmp_label2 = -1;
-	static int jmp_label3 = -1;
 	u8 dreg_lo = dstk ? IA32_EAX : dst_lo;
 	u8 dreg_hi = dstk ? IA32_EDX : dst_hi;
 
@@ -868,78 +803,22 @@ static inline void emit_ia32_arsh_r64(const u8 dst[], const u8 src[],
 		/* mov ecx,src_lo */
 		EMIT2(0x8B, add_2reg(0xC0, src_lo, IA32_ECX));
 
+	/* shrd dreg_lo,dreg_hi,cl */
+	EMIT3(0x0F, 0xAD, add_2reg(0xC0, dreg_lo, dreg_hi));
+	/* sar dreg_hi,cl */
+	EMIT2(0xD3, add_1reg(0xF8, dreg_hi));
+
+	/* if ecx >= 32, mov dreg_hi to dreg_lo and set/clear dreg_hi depending on sign */
+
 	/* cmp ecx,32 */
 	EMIT3(0x83, add_1reg(0xF8, IA32_ECX), 32);
-	/* Jumps when >= 32 */
-	if (is_imm8(jmp_label(jmp_label1, 2)))
-		EMIT2(IA32_JAE, jmp_label(jmp_label1, 2));
-	else
-		EMIT2_off32(0x0F, IA32_JAE + 0x10, jmp_label(jmp_label1, 6));
+	/* skip the next two instructions (5 bytes) when < 32 */
+	EMIT2(IA32_JB, 5);
 
-	/* < 32 */
-	/* lshr dreg_lo,cl */
-	EMIT2(0xD3, add_1reg(0xE8, dreg_lo));
-	/* mov ebx,dreg_hi */
-	EMIT2(0x8B, add_2reg(0xC0, dreg_hi, IA32_EBX));
-	/* ashr dreg_hi,cl */
-	EMIT2(0xD3, add_1reg(0xF8, dreg_hi));
-
-	/* IA32_ECX = -IA32_ECX + 32 */
-	/* neg ecx */
-	EMIT2(0xF7, add_1reg(0xD8, IA32_ECX));
-	/* add ecx,32 */
-	EMIT3(0x83, add_1reg(0xC0, IA32_ECX), 32);
-
-	/* shl ebx,cl */
-	EMIT2(0xD3, add_1reg(0xE0, IA32_EBX));
-	/* or dreg_lo,ebx */
-	EMIT2(0x09, add_2reg(0xC0, dreg_lo, IA32_EBX));
-
-	/* goto out; */
-	if (is_imm8(jmp_label(jmp_label3, 2)))
-		EMIT2(0xEB, jmp_label(jmp_label3, 2));
-	else
-		EMIT1_off32(0xE9, jmp_label(jmp_label3, 5));
-
-	/* >= 32 */
-	if (jmp_label1 == -1)
-		jmp_label1 = cnt;
-
-	/* cmp ecx,64 */
-	EMIT3(0x83, add_1reg(0xF8, IA32_ECX), 64);
-	/* Jumps when >= 64 */
-	if (is_imm8(jmp_label(jmp_label2, 2)))
-		EMIT2(IA32_JAE, jmp_label(jmp_label2, 2));
-	else
-		EMIT2_off32(0x0F, IA32_JAE + 0x10, jmp_label(jmp_label2, 6));
-
-	/* >= 32 && < 64 */
-	/* sub ecx,32 */
-	EMIT3(0x83, add_1reg(0xE8, IA32_ECX), 32);
-	/* ashr dreg_hi,cl */
-	EMIT2(0xD3, add_1reg(0xF8, dreg_hi));
 	/* mov dreg_lo,dreg_hi */
 	EMIT2(0x89, add_2reg(0xC0, dreg_lo, dreg_hi));
-
-	/* ashr dreg_hi,imm8 */
+	/* sar dreg_hi,31 */
 	EMIT3(0xC1, add_1reg(0xF8, dreg_hi), 31);
-
-	/* goto out; */
-	if (is_imm8(jmp_label(jmp_label3, 2)))
-		EMIT2(0xEB, jmp_label(jmp_label3, 2));
-	else
-		EMIT1_off32(0xE9, jmp_label(jmp_label3, 5));
-
-	/* >= 64 */
-	if (jmp_label2 == -1)
-		jmp_label2 = cnt;
-	/* ashr dreg_hi,imm8 */
-	EMIT3(0xC1, add_1reg(0xF8, dreg_hi), 31);
-	/* mov dreg_lo,dreg_hi */
-	EMIT2(0x89, add_2reg(0xC0, dreg_lo, dreg_hi));
-
-	if (jmp_label3 == -1)
-		jmp_label3 = cnt;
 
 	if (dstk) {
 		/* mov dword ptr [ebp+off],dreg_lo */
@@ -959,9 +838,6 @@ static inline void emit_ia32_rsh_r64(const u8 dst[], const u8 src[], bool dstk,
 {
 	u8 *prog = *pprog;
 	int cnt = 0;
-	static int jmp_label1 = -1;
-	static int jmp_label2 = -1;
-	static int jmp_label3 = -1;
 	u8 dreg_lo = dstk ? IA32_EAX : dst_lo;
 	u8 dreg_hi = dstk ? IA32_EDX : dst_hi;
 
@@ -980,76 +856,22 @@ static inline void emit_ia32_rsh_r64(const u8 dst[], const u8 src[], bool dstk,
 		/* mov ecx,src_lo */
 		EMIT2(0x8B, add_2reg(0xC0, src_lo, IA32_ECX));
 
+	/* shrd dreg_lo,dreg_hi,cl */
+	EMIT3(0x0F, 0xAD, add_2reg(0xC0, dreg_lo, dreg_hi));
+	/* shr dreg_hi,cl */
+	EMIT2(0xD3, add_1reg(0xE8, dreg_hi));
+
+	/* if ecx >= 32, mov dreg_hi to dreg_lo and clear dreg_hi */
+
 	/* cmp ecx,32 */
 	EMIT3(0x83, add_1reg(0xF8, IA32_ECX), 32);
-	/* Jumps when >= 32 */
-	if (is_imm8(jmp_label(jmp_label1, 2)))
-		EMIT2(IA32_JAE, jmp_label(jmp_label1, 2));
-	else
-		EMIT2_off32(0x0F, IA32_JAE + 0x10, jmp_label(jmp_label1, 6));
+	/* skip the next two instructions (4 bytes) when < 32 */
+	EMIT2(IA32_JB, 4);
 
-	/* < 32 */
-	/* lshr dreg_lo,cl */
-	EMIT2(0xD3, add_1reg(0xE8, dreg_lo));
-	/* mov ebx,dreg_hi */
-	EMIT2(0x8B, add_2reg(0xC0, dreg_hi, IA32_EBX));
-	/* shr dreg_hi,cl */
-	EMIT2(0xD3, add_1reg(0xE8, dreg_hi));
-
-	/* IA32_ECX = -IA32_ECX + 32 */
-	/* neg ecx */
-	EMIT2(0xF7, add_1reg(0xD8, IA32_ECX));
-	/* add ecx,32 */
-	EMIT3(0x83, add_1reg(0xC0, IA32_ECX), 32);
-
-	/* shl ebx,cl */
-	EMIT2(0xD3, add_1reg(0xE0, IA32_EBX));
-	/* or dreg_lo,ebx */
-	EMIT2(0x09, add_2reg(0xC0, dreg_lo, IA32_EBX));
-
-	/* goto out; */
-	if (is_imm8(jmp_label(jmp_label3, 2)))
-		EMIT2(0xEB, jmp_label(jmp_label3, 2));
-	else
-		EMIT1_off32(0xE9, jmp_label(jmp_label3, 5));
-
-	/* >= 32 */
-	if (jmp_label1 == -1)
-		jmp_label1 = cnt;
-	/* cmp ecx,64 */
-	EMIT3(0x83, add_1reg(0xF8, IA32_ECX), 64);
-	/* Jumps when >= 64 */
-	if (is_imm8(jmp_label(jmp_label2, 2)))
-		EMIT2(IA32_JAE, jmp_label(jmp_label2, 2));
-	else
-		EMIT2_off32(0x0F, IA32_JAE + 0x10, jmp_label(jmp_label2, 6));
-
-	/* >= 32 && < 64 */
-	/* sub ecx,32 */
-	EMIT3(0x83, add_1reg(0xE8, IA32_ECX), 32);
-	/* shr dreg_hi,cl */
-	EMIT2(0xD3, add_1reg(0xE8, dreg_hi));
 	/* mov dreg_lo,dreg_hi */
 	EMIT2(0x89, add_2reg(0xC0, dreg_lo, dreg_hi));
 	/* xor dreg_hi,dreg_hi */
 	EMIT2(0x33, add_2reg(0xC0, dreg_hi, dreg_hi));
-
-	/* goto out; */
-	if (is_imm8(jmp_label(jmp_label3, 2)))
-		EMIT2(0xEB, jmp_label(jmp_label3, 2));
-	else
-		EMIT1_off32(0xE9, jmp_label(jmp_label3, 5));
-
-	/* >= 64 */
-	if (jmp_label2 == -1)
-		jmp_label2 = cnt;
-	/* xor dreg_lo,dreg_lo */
-	EMIT2(0x33, add_2reg(0xC0, dreg_lo, dreg_lo));
-	/* xor dreg_hi,dreg_hi */
-	EMIT2(0x33, add_2reg(0xC0, dreg_hi, dreg_hi));
-
-	if (jmp_label3 == -1)
-		jmp_label3 = cnt;
 
 	if (dstk) {
 		/* mov dword ptr [ebp+off],dreg_lo */
@@ -1080,27 +902,10 @@ static inline void emit_ia32_lsh_i64(const u8 dst[], const u32 val,
 	}
 	/* Do LSH operation */
 	if (val < 32) {
-		/* shl dreg_hi,imm8 */
-		EMIT3(0xC1, add_1reg(0xE0, dreg_hi), val);
-		/* mov ebx,dreg_lo */
-		EMIT2(0x8B, add_2reg(0xC0, dreg_lo, IA32_EBX));
+		/* shld dreg_hi,dreg_lo,imm8 */
+		EMIT4(0x0F, 0xA4, add_2reg(0xC0, dreg_hi, dreg_lo), val);
 		/* shl dreg_lo,imm8 */
 		EMIT3(0xC1, add_1reg(0xE0, dreg_lo), val);
-
-		/* IA32_ECX = 32 - val */
-		/* mov ecx,val */
-		EMIT2(0xB1, val);
-		/* movzx ecx,ecx */
-		EMIT3(0x0F, 0xB6, add_2reg(0xC0, IA32_ECX, IA32_ECX));
-		/* neg ecx */
-		EMIT2(0xF7, add_1reg(0xD8, IA32_ECX));
-		/* add ecx,32 */
-		EMIT3(0x83, add_1reg(0xC0, IA32_ECX), 32);
-
-		/* shr ebx,cl */
-		EMIT2(0xD3, add_1reg(0xE8, IA32_EBX));
-		/* or dreg_hi,ebx */
-		EMIT2(0x09, add_2reg(0xC0, dreg_hi, IA32_EBX));
 	} else if (val >= 32 && val < 64) {
 		u32 value = val - 32;
 
@@ -1146,27 +951,10 @@ static inline void emit_ia32_rsh_i64(const u8 dst[], const u32 val,
 
 	/* Do RSH operation */
 	if (val < 32) {
-		/* shr dreg_lo,imm8 */
-		EMIT3(0xC1, add_1reg(0xE8, dreg_lo), val);
-		/* mov ebx,dreg_hi */
-		EMIT2(0x8B, add_2reg(0xC0, dreg_hi, IA32_EBX));
+		/* shrd dreg_lo,dreg_hi,imm8 */
+		EMIT4(0x0F, 0xAC, add_2reg(0xC0, dreg_lo, dreg_hi), val);
 		/* shr dreg_hi,imm8 */
 		EMIT3(0xC1, add_1reg(0xE8, dreg_hi), val);
-
-		/* IA32_ECX = 32 - val */
-		/* mov ecx,val */
-		EMIT2(0xB1, val);
-		/* movzx ecx,ecx */
-		EMIT3(0x0F, 0xB6, add_2reg(0xC0, IA32_ECX, IA32_ECX));
-		/* neg ecx */
-		EMIT2(0xF7, add_1reg(0xD8, IA32_ECX));
-		/* add ecx,32 */
-		EMIT3(0x83, add_1reg(0xC0, IA32_ECX), 32);
-
-		/* shl ebx,cl */
-		EMIT2(0xD3, add_1reg(0xE0, IA32_EBX));
-		/* or dreg_lo,ebx */
-		EMIT2(0x09, add_2reg(0xC0, dreg_lo, IA32_EBX));
 	} else if (val >= 32 && val < 64) {
 		u32 value = val - 32;
 
@@ -1211,27 +999,10 @@ static inline void emit_ia32_arsh_i64(const u8 dst[], const u32 val,
 	}
 	/* Do RSH operation */
 	if (val < 32) {
-		/* shr dreg_lo,imm8 */
-		EMIT3(0xC1, add_1reg(0xE8, dreg_lo), val);
-		/* mov ebx,dreg_hi */
-		EMIT2(0x8B, add_2reg(0xC0, dreg_hi, IA32_EBX));
+		/* shrd dreg_lo,dreg_hi,imm8 */
+		EMIT4(0x0F, 0xAC, add_2reg(0xC0, dreg_lo, dreg_hi), val);
 		/* ashr dreg_hi,imm8 */
 		EMIT3(0xC1, add_1reg(0xF8, dreg_hi), val);
-
-		/* IA32_ECX = 32 - val */
-		/* mov ecx,val */
-		EMIT2(0xB1, val);
-		/* movzx ecx,ecx */
-		EMIT3(0x0F, 0xB6, add_2reg(0xC0, IA32_ECX, IA32_ECX));
-		/* neg ecx */
-		EMIT2(0xF7, add_1reg(0xD8, IA32_ECX));
-		/* add ecx,32 */
-		EMIT3(0x83, add_1reg(0xC0, IA32_ECX), 32);
-
-		/* shl ebx,cl */
-		EMIT2(0xD3, add_1reg(0xE0, IA32_EBX));
-		/* or dreg_lo,ebx */
-		EMIT2(0x09, add_2reg(0xC0, dreg_lo, IA32_EBX));
 	} else if (val >= 32 && val < 64) {
 		u32 value = val - 32;
 
@@ -1447,8 +1218,8 @@ static void emit_prologue(u8 **pprog, u32 stack_depth)
 
 	/* sub esp,STACK_SIZE */
 	EMIT2_off32(0x81, 0xEC, STACK_SIZE);
-	/* sub ebp,SCRATCH_SIZE+4+12*/
-	EMIT3(0x83, add_1reg(0xE8, IA32_EBP), SCRATCH_SIZE + 16);
+	/* sub ebp,SCRATCH_SIZE+12*/
+	EMIT3(0x83, add_1reg(0xE8, IA32_EBP), SCRATCH_SIZE + 12);
 	/* xor ebx,ebx */
 	EMIT2(0x31, add_2reg(0xC0, IA32_EBX, IA32_EBX));
 
@@ -1481,8 +1252,8 @@ static void emit_epilogue(u8 **pprog, u32 stack_depth)
 	/* mov edx,dword ptr [ebp+off]*/
 	EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EDX), STACK_VAR(r0[1]));
 
-	/* add ebp,SCRATCH_SIZE+4+12*/
-	EMIT3(0x83, add_1reg(0xC0, IA32_EBP), SCRATCH_SIZE + 16);
+	/* add ebp,SCRATCH_SIZE+12*/
+	EMIT3(0x83, add_1reg(0xC0, IA32_EBP), SCRATCH_SIZE + 12);
 
 	/* mov ebx,dword ptr [ebp-12]*/
 	EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EBX), -12);
@@ -1619,6 +1390,75 @@ static inline void emit_push_r64(const u8 src[], u8 **pprog)
 	*pprog = prog;
 }
 
+static u8 get_cond_jmp_opcode(const u8 op, bool is_cmp_lo)
+{
+	u8 jmp_cond;
+
+	/* Convert BPF opcode to x86 */
+	switch (op) {
+	case BPF_JEQ:
+		jmp_cond = IA32_JE;
+		break;
+	case BPF_JSET:
+	case BPF_JNE:
+		jmp_cond = IA32_JNE;
+		break;
+	case BPF_JGT:
+		/* GT is unsigned '>', JA in x86 */
+		jmp_cond = IA32_JA;
+		break;
+	case BPF_JLT:
+		/* LT is unsigned '<', JB in x86 */
+		jmp_cond = IA32_JB;
+		break;
+	case BPF_JGE:
+		/* GE is unsigned '>=', JAE in x86 */
+		jmp_cond = IA32_JAE;
+		break;
+	case BPF_JLE:
+		/* LE is unsigned '<=', JBE in x86 */
+		jmp_cond = IA32_JBE;
+		break;
+	case BPF_JSGT:
+		if (!is_cmp_lo)
+			/* Signed '>', GT in x86 */
+			jmp_cond = IA32_JG;
+		else
+			/* GT is unsigned '>', JA in x86 */
+			jmp_cond = IA32_JA;
+		break;
+	case BPF_JSLT:
+		if (!is_cmp_lo)
+			/* Signed '<', LT in x86 */
+			jmp_cond = IA32_JL;
+		else
+			/* LT is unsigned '<', JB in x86 */
+			jmp_cond = IA32_JB;
+		break;
+	case BPF_JSGE:
+		if (!is_cmp_lo)
+			/* Signed '>=', GE in x86 */
+			jmp_cond = IA32_JGE;
+		else
+			/* GE is unsigned '>=', JAE in x86 */
+			jmp_cond = IA32_JAE;
+		break;
+	case BPF_JSLE:
+		if (!is_cmp_lo)
+			/* Signed '<=', LE in x86 */
+			jmp_cond = IA32_JLE;
+		else
+			/* LE is unsigned '<=', JBE in x86 */
+			jmp_cond = IA32_JBE;
+		break;
+	default: /* to silence GCC warning */
+		jmp_cond = COND_JMP_OPCODE_INVALID;
+		break;
+	}
+
+	return jmp_cond;
+}
+
 static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 		  int oldproglen, struct jit_context *ctx)
 {
@@ -1635,8 +1475,8 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 	for (i = 0; i < insn_cnt; i++, insn++) {
 		const s32 imm32 = insn->imm;
 		const bool is64 = BPF_CLASS(insn->code) == BPF_ALU64;
-		const bool dstk = insn->dst_reg == BPF_REG_AX ? false : true;
-		const bool sstk = insn->src_reg == BPF_REG_AX ? false : true;
+		const bool dstk = insn->dst_reg != BPF_REG_AX;
+		const bool sstk = insn->src_reg != BPF_REG_AX;
 		const u8 code = insn->code;
 		const u8 *dst = bpf2ia32[insn->dst_reg];
 		const u8 *src = bpf2ia32[insn->src_reg];
@@ -1655,8 +1495,13 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 		case BPF_ALU64 | BPF_MOV | BPF_X:
 			switch (BPF_SRC(code)) {
 			case BPF_X:
-				emit_ia32_mov_r64(is64, dst, src, dstk,
-						  sstk, &prog);
+				if (imm32 == 1) {
+					/* Special mov32 for zext. */
+					emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
+					break;
+				}
+				emit_ia32_mov_r64(is64, dst, src, dstk, sstk,
+						  &prog, bpf_prog->aux);
 				break;
 			case BPF_K:
 				/* Sign-extend immediate value to dst reg */
@@ -1696,11 +1541,13 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 			switch (BPF_SRC(code)) {
 			case BPF_X:
 				emit_ia32_alu_r64(is64, BPF_OP(code), dst,
-						  src, dstk, sstk, &prog);
+						  src, dstk, sstk, &prog,
+						  bpf_prog->aux);
 				break;
 			case BPF_K:
 				emit_ia32_alu_i64(is64, BPF_OP(code), dst,
-						  imm32, dstk, &prog);
+						  imm32, dstk, &prog,
+						  bpf_prog->aux);
 				break;
 			}
 			break;
@@ -1719,7 +1566,8 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 						false, &prog);
 				break;
 			}
-			emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
+			if (!bpf_prog->aux->verifier_zext)
+				emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
 			break;
 		case BPF_ALU | BPF_LSH | BPF_X:
 		case BPF_ALU | BPF_RSH | BPF_X:
@@ -1739,7 +1587,8 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 						  &prog);
 				break;
 			}
-			emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
+			if (!bpf_prog->aux->verifier_zext)
+				emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
 			break;
 		/* dst = dst / src(imm) */
 		/* dst = dst % src(imm) */
@@ -1761,7 +1610,8 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 						    &prog);
 				break;
 			}
-			emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
+			if (!bpf_prog->aux->verifier_zext)
+				emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
 			break;
 		case BPF_ALU64 | BPF_DIV | BPF_K:
 		case BPF_ALU64 | BPF_DIV | BPF_X:
@@ -1778,7 +1628,8 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 			EMIT2_off32(0xC7, add_1reg(0xC0, IA32_ECX), imm32);
 			emit_ia32_shift_r(BPF_OP(code), dst_lo, IA32_ECX, dstk,
 					  false, &prog);
-			emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
+			if (!bpf_prog->aux->verifier_zext)
+				emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
 			break;
 		/* dst = dst << imm */
 		case BPF_ALU64 | BPF_LSH | BPF_K:
@@ -1814,7 +1665,8 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 		case BPF_ALU | BPF_NEG:
 			emit_ia32_alu_i(is64, false, BPF_OP(code),
 					dst_lo, 0, dstk, &prog);
-			emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
+			if (!bpf_prog->aux->verifier_zext)
+				emit_ia32_mov_i(dst_hi, 0, dstk, &prog);
 			break;
 		/* dst = ~dst (64 bit) */
 		case BPF_ALU64 | BPF_NEG:
@@ -1834,11 +1686,13 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 			break;
 		/* dst = htole(dst) */
 		case BPF_ALU | BPF_END | BPF_FROM_LE:
-			emit_ia32_to_le_r64(dst, imm32, dstk, &prog);
+			emit_ia32_to_le_r64(dst, imm32, dstk, &prog,
+					    bpf_prog->aux);
 			break;
 		/* dst = htobe(dst) */
 		case BPF_ALU | BPF_END | BPF_FROM_BE:
-			emit_ia32_to_be_r64(dst, imm32, dstk, &prog);
+			emit_ia32_to_be_r64(dst, imm32, dstk, &prog,
+					    bpf_prog->aux);
 			break;
 		/* dst = imm64 */
 		case BPF_LD | BPF_IMM | BPF_DW: {
@@ -1993,12 +1847,16 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 			case BPF_B:
 			case BPF_H:
 			case BPF_W:
+				if (bpf_prog->aux->verifier_zext)
+					break;
 				if (dstk) {
 					EMIT3(0xC7, add_1reg(0x40, IA32_EBP),
 					      STACK_VAR(dst_hi));
 					EMIT(0x0, 4);
 				} else {
-					EMIT3(0xC7, add_1reg(0xC0, dst_hi), 0);
+					/* xor dst_hi,dst_hi */
+					EMIT2(0x33,
+					      add_2reg(0xC0, dst_hi, dst_hi));
 				}
 				break;
 			case BPF_DW:
@@ -2075,6 +1933,51 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 		case BPF_JMP | BPF_JLT | BPF_X:
 		case BPF_JMP | BPF_JGE | BPF_X:
 		case BPF_JMP | BPF_JLE | BPF_X:
+		case BPF_JMP32 | BPF_JEQ | BPF_X:
+		case BPF_JMP32 | BPF_JNE | BPF_X:
+		case BPF_JMP32 | BPF_JGT | BPF_X:
+		case BPF_JMP32 | BPF_JLT | BPF_X:
+		case BPF_JMP32 | BPF_JGE | BPF_X:
+		case BPF_JMP32 | BPF_JLE | BPF_X:
+		case BPF_JMP32 | BPF_JSGT | BPF_X:
+		case BPF_JMP32 | BPF_JSLE | BPF_X:
+		case BPF_JMP32 | BPF_JSLT | BPF_X:
+		case BPF_JMP32 | BPF_JSGE | BPF_X: {
+			bool is_jmp64 = BPF_CLASS(insn->code) == BPF_JMP;
+			u8 dreg_lo = dstk ? IA32_EAX : dst_lo;
+			u8 dreg_hi = dstk ? IA32_EDX : dst_hi;
+			u8 sreg_lo = sstk ? IA32_ECX : src_lo;
+			u8 sreg_hi = sstk ? IA32_EBX : src_hi;
+
+			if (dstk) {
+				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EAX),
+				      STACK_VAR(dst_lo));
+				if (is_jmp64)
+					EMIT3(0x8B,
+					      add_2reg(0x40, IA32_EBP,
+						       IA32_EDX),
+					      STACK_VAR(dst_hi));
+			}
+
+			if (sstk) {
+				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_ECX),
+				      STACK_VAR(src_lo));
+				if (is_jmp64)
+					EMIT3(0x8B,
+					      add_2reg(0x40, IA32_EBP,
+						       IA32_EBX),
+					      STACK_VAR(src_hi));
+			}
+
+			if (is_jmp64) {
+				/* cmp dreg_hi,sreg_hi */
+				EMIT2(0x39, add_2reg(0xC0, dreg_hi, sreg_hi));
+				EMIT2(IA32_JNE, 2);
+			}
+			/* cmp dreg_lo,sreg_lo */
+			EMIT2(0x39, add_2reg(0xC0, dreg_lo, sreg_lo));
+			goto emit_cond_jmp;
+		}
 		case BPF_JMP | BPF_JSGT | BPF_X:
 		case BPF_JMP | BPF_JSLE | BPF_X:
 		case BPF_JMP | BPF_JSLT | BPF_X:
@@ -2087,77 +1990,112 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 			if (dstk) {
 				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EAX),
 				      STACK_VAR(dst_lo));
-				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EDX),
+				EMIT3(0x8B,
+				      add_2reg(0x40, IA32_EBP,
+					       IA32_EDX),
 				      STACK_VAR(dst_hi));
 			}
 
 			if (sstk) {
 				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_ECX),
 				      STACK_VAR(src_lo));
-				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EBX),
+				EMIT3(0x8B,
+				      add_2reg(0x40, IA32_EBP,
+					       IA32_EBX),
 				      STACK_VAR(src_hi));
 			}
 
 			/* cmp dreg_hi,sreg_hi */
 			EMIT2(0x39, add_2reg(0xC0, dreg_hi, sreg_hi));
-			EMIT2(IA32_JNE, 2);
+			EMIT2(IA32_JNE, 10);
 			/* cmp dreg_lo,sreg_lo */
 			EMIT2(0x39, add_2reg(0xC0, dreg_lo, sreg_lo));
-			goto emit_cond_jmp;
+			goto emit_cond_jmp_signed;
 		}
-		case BPF_JMP | BPF_JSET | BPF_X: {
-			u8 dreg_lo = dstk ? IA32_EAX : dst_lo;
-			u8 dreg_hi = dstk ? IA32_EDX : dst_hi;
+		case BPF_JMP | BPF_JSET | BPF_X:
+		case BPF_JMP32 | BPF_JSET | BPF_X: {
+			bool is_jmp64 = BPF_CLASS(insn->code) == BPF_JMP;
+			u8 dreg_lo = IA32_EAX;
+			u8 dreg_hi = IA32_EDX;
 			u8 sreg_lo = sstk ? IA32_ECX : src_lo;
 			u8 sreg_hi = sstk ? IA32_EBX : src_hi;
 
 			if (dstk) {
 				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EAX),
 				      STACK_VAR(dst_lo));
-				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EDX),
-				      STACK_VAR(dst_hi));
+				if (is_jmp64)
+					EMIT3(0x8B,
+					      add_2reg(0x40, IA32_EBP,
+						       IA32_EDX),
+					      STACK_VAR(dst_hi));
+			} else {
+				/* mov dreg_lo,dst_lo */
+				EMIT2(0x89, add_2reg(0xC0, dreg_lo, dst_lo));
+				if (is_jmp64)
+					/* mov dreg_hi,dst_hi */
+					EMIT2(0x89,
+					      add_2reg(0xC0, dreg_hi, dst_hi));
 			}
 
 			if (sstk) {
 				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_ECX),
 				      STACK_VAR(src_lo));
-				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EBX),
-				      STACK_VAR(src_hi));
+				if (is_jmp64)
+					EMIT3(0x8B,
+					      add_2reg(0x40, IA32_EBP,
+						       IA32_EBX),
+					      STACK_VAR(src_hi));
 			}
 			/* and dreg_lo,sreg_lo */
 			EMIT2(0x23, add_2reg(0xC0, sreg_lo, dreg_lo));
-			/* and dreg_hi,sreg_hi */
-			EMIT2(0x23, add_2reg(0xC0, sreg_hi, dreg_hi));
-			/* or dreg_lo,dreg_hi */
-			EMIT2(0x09, add_2reg(0xC0, dreg_lo, dreg_hi));
+			if (is_jmp64) {
+				/* and dreg_hi,sreg_hi */
+				EMIT2(0x23, add_2reg(0xC0, sreg_hi, dreg_hi));
+				/* or dreg_lo,dreg_hi */
+				EMIT2(0x09, add_2reg(0xC0, dreg_lo, dreg_hi));
+			}
 			goto emit_cond_jmp;
 		}
-		case BPF_JMP | BPF_JSET | BPF_K: {
-			u32 hi;
-			u8 dreg_lo = dstk ? IA32_EAX : dst_lo;
-			u8 dreg_hi = dstk ? IA32_EDX : dst_hi;
+		case BPF_JMP | BPF_JSET | BPF_K:
+		case BPF_JMP32 | BPF_JSET | BPF_K: {
+			bool is_jmp64 = BPF_CLASS(insn->code) == BPF_JMP;
+			u8 dreg_lo = IA32_EAX;
+			u8 dreg_hi = IA32_EDX;
 			u8 sreg_lo = IA32_ECX;
 			u8 sreg_hi = IA32_EBX;
+			u32 hi;
 
 			if (dstk) {
 				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EAX),
 				      STACK_VAR(dst_lo));
-				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EDX),
-				      STACK_VAR(dst_hi));
+				if (is_jmp64)
+					EMIT3(0x8B,
+					      add_2reg(0x40, IA32_EBP,
+						       IA32_EDX),
+					      STACK_VAR(dst_hi));
+			} else {
+				/* mov dreg_lo,dst_lo */
+				EMIT2(0x89, add_2reg(0xC0, dreg_lo, dst_lo));
+				if (is_jmp64)
+					/* mov dreg_hi,dst_hi */
+					EMIT2(0x89,
+					      add_2reg(0xC0, dreg_hi, dst_hi));
 			}
-			hi = imm32 & (1<<31) ? (u32)~0 : 0;
 
 			/* mov ecx,imm32 */
-			EMIT2_off32(0xC7, add_1reg(0xC0, IA32_ECX), imm32);
-			/* mov ebx,imm32 */
-			EMIT2_off32(0xC7, add_1reg(0xC0, IA32_EBX), hi);
+			EMIT2_off32(0xC7, add_1reg(0xC0, sreg_lo), imm32);
 
 			/* and dreg_lo,sreg_lo */
 			EMIT2(0x23, add_2reg(0xC0, sreg_lo, dreg_lo));
-			/* and dreg_hi,sreg_hi */
-			EMIT2(0x23, add_2reg(0xC0, sreg_hi, dreg_hi));
-			/* or dreg_lo,dreg_hi */
-			EMIT2(0x09, add_2reg(0xC0, dreg_lo, dreg_hi));
+			if (is_jmp64) {
+				hi = imm32 & (1 << 31) ? (u32)~0 : 0;
+				/* mov ebx,imm32 */
+				EMIT2_off32(0xC7, add_1reg(0xC0, sreg_hi), hi);
+				/* and dreg_hi,sreg_hi */
+				EMIT2(0x23, add_2reg(0xC0, sreg_hi, dreg_hi));
+				/* or dreg_lo,dreg_hi */
+				EMIT2(0x09, add_2reg(0xC0, dreg_lo, dreg_hi));
+			}
 			goto emit_cond_jmp;
 		}
 		case BPF_JMP | BPF_JEQ | BPF_K:
@@ -2166,79 +2104,49 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
 		case BPF_JMP | BPF_JLT | BPF_K:
 		case BPF_JMP | BPF_JGE | BPF_K:
 		case BPF_JMP | BPF_JLE | BPF_K:
-		case BPF_JMP | BPF_JSGT | BPF_K:
-		case BPF_JMP | BPF_JSLE | BPF_K:
-		case BPF_JMP | BPF_JSLT | BPF_K:
-		case BPF_JMP | BPF_JSGE | BPF_K: {
-			u32 hi;
+		case BPF_JMP32 | BPF_JEQ | BPF_K:
+		case BPF_JMP32 | BPF_JNE | BPF_K:
+		case BPF_JMP32 | BPF_JGT | BPF_K:
+		case BPF_JMP32 | BPF_JLT | BPF_K:
+		case BPF_JMP32 | BPF_JGE | BPF_K:
+		case BPF_JMP32 | BPF_JLE | BPF_K:
+		case BPF_JMP32 | BPF_JSGT | BPF_K:
+		case BPF_JMP32 | BPF_JSLE | BPF_K:
+		case BPF_JMP32 | BPF_JSLT | BPF_K:
+		case BPF_JMP32 | BPF_JSGE | BPF_K: {
+			bool is_jmp64 = BPF_CLASS(insn->code) == BPF_JMP;
 			u8 dreg_lo = dstk ? IA32_EAX : dst_lo;
 			u8 dreg_hi = dstk ? IA32_EDX : dst_hi;
 			u8 sreg_lo = IA32_ECX;
 			u8 sreg_hi = IA32_EBX;
+			u32 hi;
 
 			if (dstk) {
 				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EAX),
 				      STACK_VAR(dst_lo));
-				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EDX),
-				      STACK_VAR(dst_hi));
+				if (is_jmp64)
+					EMIT3(0x8B,
+					      add_2reg(0x40, IA32_EBP,
+						       IA32_EDX),
+					      STACK_VAR(dst_hi));
 			}
 
-			hi = imm32 & (1<<31) ? (u32)~0 : 0;
 			/* mov ecx,imm32 */
 			EMIT2_off32(0xC7, add_1reg(0xC0, IA32_ECX), imm32);
-			/* mov ebx,imm32 */
-			EMIT2_off32(0xC7, add_1reg(0xC0, IA32_EBX), hi);
-
-			/* cmp dreg_hi,sreg_hi */
-			EMIT2(0x39, add_2reg(0xC0, dreg_hi, sreg_hi));
-			EMIT2(IA32_JNE, 2);
+			if (is_jmp64) {
+				hi = imm32 & (1 << 31) ? (u32)~0 : 0;
+				/* mov ebx,imm32 */
+				EMIT2_off32(0xC7, add_1reg(0xC0, IA32_EBX), hi);
+				/* cmp dreg_hi,sreg_hi */
+				EMIT2(0x39, add_2reg(0xC0, dreg_hi, sreg_hi));
+				EMIT2(IA32_JNE, 2);
+			}
 			/* cmp dreg_lo,sreg_lo */
 			EMIT2(0x39, add_2reg(0xC0, dreg_lo, sreg_lo));
 
-emit_cond_jmp:		/* Convert BPF opcode to x86 */
-			switch (BPF_OP(code)) {
-			case BPF_JEQ:
-				jmp_cond = IA32_JE;
-				break;
-			case BPF_JSET:
-			case BPF_JNE:
-				jmp_cond = IA32_JNE;
-				break;
-			case BPF_JGT:
-				/* GT is unsigned '>', JA in x86 */
-				jmp_cond = IA32_JA;
-				break;
-			case BPF_JLT:
-				/* LT is unsigned '<', JB in x86 */
-				jmp_cond = IA32_JB;
-				break;
-			case BPF_JGE:
-				/* GE is unsigned '>=', JAE in x86 */
-				jmp_cond = IA32_JAE;
-				break;
-			case BPF_JLE:
-				/* LE is unsigned '<=', JBE in x86 */
-				jmp_cond = IA32_JBE;
-				break;
-			case BPF_JSGT:
-				/* Signed '>', GT in x86 */
-				jmp_cond = IA32_JG;
-				break;
-			case BPF_JSLT:
-				/* Signed '<', LT in x86 */
-				jmp_cond = IA32_JL;
-				break;
-			case BPF_JSGE:
-				/* Signed '>=', GE in x86 */
-				jmp_cond = IA32_JGE;
-				break;
-			case BPF_JSLE:
-				/* Signed '<=', LE in x86 */
-				jmp_cond = IA32_JLE;
-				break;
-			default: /* to silence GCC warning */
+emit_cond_jmp:		jmp_cond = get_cond_jmp_opcode(BPF_OP(code), false);
+			if (jmp_cond == COND_JMP_OPCODE_INVALID)
 				return -EFAULT;
-			}
 			jmp_offset = addrs[i + insn->off] - addrs[i];
 			if (is_imm8(jmp_offset)) {
 				EMIT2(jmp_cond, jmp_offset);
@@ -2248,7 +2156,66 @@ emit_cond_jmp:		/* Convert BPF opcode to x86 */
 				pr_err("cond_jmp gen bug %llx\n", jmp_offset);
 				return -EFAULT;
 			}
+			break;
+		}
+		case BPF_JMP | BPF_JSGT | BPF_K:
+		case BPF_JMP | BPF_JSLE | BPF_K:
+		case BPF_JMP | BPF_JSLT | BPF_K:
+		case BPF_JMP | BPF_JSGE | BPF_K: {
+			u8 dreg_lo = dstk ? IA32_EAX : dst_lo;
+			u8 dreg_hi = dstk ? IA32_EDX : dst_hi;
+			u8 sreg_lo = IA32_ECX;
+			u8 sreg_hi = IA32_EBX;
+			u32 hi;
 
+			if (dstk) {
+				EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EAX),
+				      STACK_VAR(dst_lo));
+				EMIT3(0x8B,
+				      add_2reg(0x40, IA32_EBP,
+					       IA32_EDX),
+				      STACK_VAR(dst_hi));
+			}
+
+			/* mov ecx,imm32 */
+			EMIT2_off32(0xC7, add_1reg(0xC0, IA32_ECX), imm32);
+			hi = imm32 & (1 << 31) ? (u32)~0 : 0;
+			/* mov ebx,imm32 */
+			EMIT2_off32(0xC7, add_1reg(0xC0, IA32_EBX), hi);
+			/* cmp dreg_hi,sreg_hi */
+			EMIT2(0x39, add_2reg(0xC0, dreg_hi, sreg_hi));
+			EMIT2(IA32_JNE, 10);
+			/* cmp dreg_lo,sreg_lo */
+			EMIT2(0x39, add_2reg(0xC0, dreg_lo, sreg_lo));
+
+			/*
+			 * For simplicity of branch offset computation,
+			 * let's use fixed jump coding here.
+			 */
+emit_cond_jmp_signed:	/* Check the condition for low 32-bit comparison */
+			jmp_cond = get_cond_jmp_opcode(BPF_OP(code), true);
+			if (jmp_cond == COND_JMP_OPCODE_INVALID)
+				return -EFAULT;
+			jmp_offset = addrs[i + insn->off] - addrs[i] + 8;
+			if (is_simm32(jmp_offset)) {
+				EMIT2_off32(0x0F, jmp_cond + 0x10, jmp_offset);
+			} else {
+				pr_err("cond_jmp gen bug %llx\n", jmp_offset);
+				return -EFAULT;
+			}
+			EMIT2(0xEB, 6);
+
+			/* Check the condition for high 32-bit comparison */
+			jmp_cond = get_cond_jmp_opcode(BPF_OP(code), false);
+			if (jmp_cond == COND_JMP_OPCODE_INVALID)
+				return -EFAULT;
+			jmp_offset = addrs[i + insn->off] - addrs[i];
+			if (is_simm32(jmp_offset)) {
+				EMIT2_off32(0x0F, jmp_cond + 0x10, jmp_offset);
+			} else {
+				pr_err("cond_jmp gen bug %llx\n", jmp_offset);
+				return -EFAULT;
+			}
 			break;
 		}
 		case BPF_JMP | BPF_JA:
@@ -2276,134 +2243,6 @@ emit_jmp:
 				return -EFAULT;
 			}
 			break;
-
-		case BPF_LD | BPF_ABS | BPF_W:
-		case BPF_LD | BPF_ABS | BPF_H:
-		case BPF_LD | BPF_ABS | BPF_B:
-		case BPF_LD | BPF_IND | BPF_W:
-		case BPF_LD | BPF_IND | BPF_H:
-		case BPF_LD | BPF_IND | BPF_B:
-		{
-			int size;
-			const u8 *r6 = bpf2ia32[BPF_REG_6];
-
-			/* Setting up first argument */
-			/* mov eax,dword ptr [ebp+off] */
-			EMIT3(0x8B, add_2reg(0x40, IA32_EBP, IA32_EAX),
-			      STACK_VAR(r6[0]));
-
-			/* Setting up second argument */
-			if (BPF_MODE(code) == BPF_ABS) {
-				/* mov %edx, imm32 */
-				EMIT1_off32(0xBA, imm32);
-			} else {
-				if (sstk)
-					/* mov edx,dword ptr [ebp+off] */
-					EMIT3(0x8B, add_2reg(0x40, IA32_EBP,
-							     IA32_EDX),
-					      STACK_VAR(src_lo));
-				else
-					/* mov edx,src_lo */
-					EMIT2(0x8B, add_2reg(0xC0, src_lo,
-							     IA32_EDX));
-				if (imm32) {
-					if (is_imm8(imm32))
-						/* add %edx,imm8 */
-						EMIT3(0x83, 0xC2, imm32);
-					else
-						/* add %edx,imm32 */
-						EMIT2_off32(0x81, 0xC2, imm32);
-				}
-			}
-
-			/* Setting up third argument */
-			switch (BPF_SIZE(code)) {
-			case BPF_W:
-				size = 4;
-				break;
-			case BPF_H:
-				size = 2;
-				break;
-			case BPF_B:
-				size = 1;
-				break;
-			default:
-				return -EINVAL;
-			}
-			/* mov ecx,val */
-			EMIT2(0xB1, size);
-			/* movzx ecx,ecx */
-			EMIT3(0x0F, 0xB6, add_2reg(0xC0, IA32_ECX, IA32_ECX));
-
-			/* mov ebx,ebp */
-			EMIT2(0x8B, add_2reg(0xC0, IA32_EBP, IA32_EBX));
-			/* add %ebx,imm8 */
-			EMIT3(0x83, add_1reg(0xC0, IA32_EBX), SKB_BUFFER);
-			/* push ebx */
-			EMIT1(0x53);
-
-			/* Setting up function pointer to call */
-			/* mov ebx,imm32*/
-			EMIT2_off32(0xC7, add_1reg(0xC0, IA32_EBX),
-				    (unsigned int)bpf_load_pointer);
-
-			EMIT2(0xFF, add_1reg(0xD0, IA32_EBX));
-			/* add %esp,4 */
-			EMIT3(0x83, add_1reg(0xC0, IA32_ESP), 4);
-			/* xor edx,edx */
-			EMIT2(0x33, add_2reg(0xC0, IA32_EDX, IA32_EDX));
-
-			/* mov dword ptr [ebp+off],eax */
-			EMIT3(0x89, add_2reg(0x40, IA32_EBP, IA32_EDX),
-			      STACK_VAR(r0[0]));
-			/* mov dword ptr [ebp+off],edx */
-			EMIT3(0x89, add_2reg(0x40, IA32_EBP, IA32_EDX),
-			      STACK_VAR(r0[1]));
-
-			/*
-			 * Check if return address is NULL or not.
-			 * If NULL then jump to epilogue else continue
-			 * to load the value from retn address
-			 */
-			EMIT3(0x83, add_1reg(0xF8, IA32_EAX), 0);
-			jmp_offset = ctx->cleanup_addr - addrs[i];
-
-			switch (BPF_SIZE(code)) {
-			case BPF_W:
-				jmp_offset += 7;
-				break;
-			case BPF_H:
-				jmp_offset += 10;
-				break;
-			case BPF_B:
-				jmp_offset += 6;
-				break;
-			}
-
-			EMIT2_off32(0x0F, IA32_JE + 0x10, jmp_offset);
-			/* Load value from the address */
-			switch (BPF_SIZE(code)) {
-			case BPF_W:
-				/* mov eax,[eax] */
-				EMIT2(0x8B, 0x0);
-				/* Emit 'bswap eax' */
-				EMIT2(0x0F, add_1reg(0xC8, IA32_EAX));
-				break;
-			case BPF_H:
-				EMIT3(0x0F, 0xB7, 0x0);
-				EMIT1(0x66);
-				EMIT3(0xC1, add_1reg(0xC8, IA32_EAX), 8);
-				break;
-			case BPF_B:
-				EMIT3(0x0F, 0xB6, 0x0);
-				break;
-			}
-
-			/* mov dword ptr [ebp+off],eax */
-			EMIT3(0x89, add_2reg(0x40, IA32_EBP, IA32_EAX),
-			      STACK_VAR(r0[0]));
-			break;
-		}
 		/* STX XADD: lock *(u32 *)(dst + off) += src */
 		case BPF_STX | BPF_XADD | BPF_W:
 		/* STX XADD: lock *(u64 *)(dst + off) += src */
@@ -2452,6 +2291,11 @@ notyet:
 	return proglen;
 }
 
+bool bpf_jit_needs_zext(void)
+{
+	return true;
+}
+
 struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 {
 	struct bpf_binary_header *header = NULL;
@@ -2479,7 +2323,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 		prog = tmp;
 	}
 
-	addrs = kmalloc(prog->len * sizeof(*addrs), GFP_KERNEL);
+	addrs = kmalloc_array(prog->len, sizeof(*addrs), GFP_KERNEL);
 	if (!addrs) {
 		prog = orig_prog;
 		goto out;
