@@ -48,10 +48,6 @@
 	};
 };
 
-&tmc_etr {
-	/delete-property/ qcom,smmu-s1-bypass;
-};
-
 &mdss_dsi0_pll {
 	compatible = "qcom,mdss_dsi_pll_7nm_v2";
 };
