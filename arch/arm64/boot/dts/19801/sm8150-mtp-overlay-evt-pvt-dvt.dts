@@ -25,7 +25,6 @@
 #include "sm8150-oem.dtsi"
 #include "hotdog.dtsi"
 #include "hotdog_sm8150.dtsi"
-#include "hotdog_dvt.dtsi"
 
 / {
 	model = "SM8150 MTP 19801 EVT PVT DVT";
