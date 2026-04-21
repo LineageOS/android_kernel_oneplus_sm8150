@@ -273,11 +273,7 @@ int dsi_dsc_create_pps_buf_cmd(struct msm_display_dsc_info *dsc, char *buf,
 	*bp++ = 1;
 	*bp++ = 0;
 	*bp++ = 0;
-#ifdef OPLUS_BUG_STABILITY
-    *bp++ = 0;
-#else
-    *bp++ = 10;
-#endif /* OPLUS_BUG_STABILITY */
+	*bp++ = dsc->pps_delay_ms;
 	*bp++ = 0;
 	*bp++ = 128;
 
@@ -3334,6 +3330,13 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 		goto error;
 	}
 	priv_info->dsc.bpc = data;
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-pps-delay-ms", &data);
+	if (rc) {
+		pr_debug("pps-delay-ms not specified, defaulting to 0\n");
+		priv_info->dsc.pps_delay_ms = 0;
+	}
+	priv_info->dsc.pps_delay_ms = data;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsc-bit-per-pixel",
 			&data);

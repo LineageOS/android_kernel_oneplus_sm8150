@@ -73,6 +73,12 @@ void rtnl_lock(void)
 }
 EXPORT_SYMBOL(rtnl_lock);
 
+int rtnl_lock_killable(void)
+{
+	return mutex_lock_killable(&rtnl_mutex);
+}
+EXPORT_SYMBOL(rtnl_lock_killable);
+
 static struct sk_buff *defer_kfree_skb_list;
 void rtnl_kfree_skbs(struct sk_buff *head, struct sk_buff *tail)
 {
@@ -118,6 +124,12 @@ int rtnl_is_locked(void)
 	return mutex_is_locked(&rtnl_mutex);
 }
 EXPORT_SYMBOL(rtnl_is_locked);
+
+bool refcount_dec_and_rtnl_lock(refcount_t *r)
+{
+	return refcount_dec_and_mutex_lock(r, &rtnl_mutex);
+}
+EXPORT_SYMBOL(refcount_dec_and_rtnl_lock);
 
 #ifdef CONFIG_PROVE_LOCKING
 bool lockdep_rtnl_is_held(void)
