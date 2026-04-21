@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "d6fdfcbc_36d07a0b",
+        "filename": "arch/arm64/boot/dts/18821/sm8150-thermal-overlay.dtsi",
+        "patchSetId": 1
+      },
+      "lineNbr": 128,
+      "author": {
+        "id": 19979
+      },
+      "writtenOn": "2026-04-21T03:33:21Z",
+      "side": 1,
+      "message": "I can re-comment these out if that is preferred",
+      "revId": "82159f499e80a59a296c65edb0d63abff03aed78",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
