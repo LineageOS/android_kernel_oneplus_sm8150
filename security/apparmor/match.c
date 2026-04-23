@@ -30,6 +30,11 @@ static char nulldfa_src[] = {
 };
 struct aa_dfa *nulldfa;
 
+static char stacksplitdfa_src[] = {
+	#include "stacksplitdfa.in"
+};
+struct aa_dfa *stacksplitdfa;
+
 int aa_setup_dfa_engine(void)
 {
 	int error;
@@ -37,19 +42,31 @@ int aa_setup_dfa_engine(void)
 	nulldfa = aa_dfa_unpack(nulldfa_src, sizeof(nulldfa_src),
 				TO_ACCEPT1_FLAG(YYTD_DATA32) |
 				TO_ACCEPT2_FLAG(YYTD_DATA32));
-	if (!IS_ERR(nulldfa))
-		return 0;
+	if (IS_ERR(nulldfa)) {
+		error = PTR_ERR(nulldfa);
+		nulldfa = NULL;
+		return error;
+	}
 
-	error = PTR_ERR(nulldfa);
-	nulldfa = NULL;
+	stacksplitdfa = aa_dfa_unpack(stacksplitdfa_src,
+				      sizeof(stacksplitdfa_src),
+				      TO_ACCEPT1_FLAG(YYTD_DATA32) |
+				      TO_ACCEPT2_FLAG(YYTD_DATA32));
+	if (IS_ERR(stacksplitdfa)) {
+		aa_put_dfa(nulldfa);
+		nulldfa = NULL;
+		error = PTR_ERR(stacksplitdfa);
+		stacksplitdfa = NULL;
+		return error;
+	}
 
-	return error;
+	return 0;
 }
 
 void aa_teardown_dfa_engine(void)
 {
+	aa_put_dfa(stacksplitdfa);
 	aa_put_dfa(nulldfa);
-	nulldfa = NULL;
 }
 
 /**
@@ -455,5 +472,125 @@ unsigned int aa_dfa_next(struct aa_dfa *dfa, unsigned int state,
 			state = def[state];
 	}
 
+	return state;
+}
+
+/**
+ * aa_dfa_match_until - traverse @dfa until accept state or end of input
+ * @dfa: the dfa to match @str against  (NOT NULL)
+ * @start: the state of the dfa to start matching in
+ * @str: the null terminated string of bytes to match against the dfa (NOT NULL)
+ * @retpos: first character in str after match OR end of string
+ *
+ * aa_dfa_match will match @str against the dfa and return the state it
+ * finished matching in. The final state can be used to look up the accepting
+ * label, or as the start state of a continuing match.
+ *
+ * Returns: final state reached after input is consumed
+ */
+unsigned int aa_dfa_match_until(struct aa_dfa *dfa, unsigned int start,
+				const char *str, const char **retpos)
+{
+	u16 *def = DEFAULT_TABLE(dfa);
+	u32 *base = BASE_TABLE(dfa);
+	u16 *next = NEXT_TABLE(dfa);
+	u16 *check = CHECK_TABLE(dfa);
+	u32 *accept = ACCEPT_TABLE(dfa);
+	unsigned int state = start, pos;
+
+	if (state == 0)
+		return 0;
+
+	/* current state is <state>, matching character *str */
+	if (dfa->tables[YYTD_ID_EC]) {
+		/* Equivalence class table defined */
+		u8 *equiv = EQUIV_TABLE(dfa);
+		/* default is direct to next state */
+		while (*str) {
+			pos = base_idx(base[state]) + equiv[(u8) *str++];
+			if (check[pos] == state)
+				state = next[pos];
+			else
+				state = def[state];
+			if (accept[state])
+				break;
+		}
+	} else {
+		/* default is direct to next state */
+		while (*str) {
+			pos = base_idx(base[state]) + (u8) *str++;
+			if (check[pos] == state)
+				state = next[pos];
+			else
+				state = def[state];
+			if (accept[state])
+				break;
+		}
+	}
+
+	*retpos = str;
+	return state;
+}
+
+
+/**
+ * aa_dfa_matchn_until - traverse @dfa until accept or @n bytes consumed
+ * @dfa: the dfa to match @str against  (NOT NULL)
+ * @start: the state of the dfa to start matching in
+ * @str: the string of bytes to match against the dfa  (NOT NULL)
+ * @n: length of the string of bytes to match
+ * @retpos: first character in str after match OR str + n
+ *
+ * aa_dfa_match_len will match @str against the dfa and return the state it
+ * finished matching in. The final state can be used to look up the accepting
+ * label, or as the start state of a continuing match.
+ *
+ * This function will happily match again the 0 byte and only finishes
+ * when @n input is consumed.
+ *
+ * Returns: final state reached after input is consumed
+ */
+unsigned int aa_dfa_matchn_until(struct aa_dfa *dfa, unsigned int start,
+				 const char *str, int n, const char **retpos)
+{
+	u16 *def = DEFAULT_TABLE(dfa);
+	u32 *base = BASE_TABLE(dfa);
+	u16 *next = NEXT_TABLE(dfa);
+	u16 *check = CHECK_TABLE(dfa);
+	u32 *accept = ACCEPT_TABLE(dfa);
+	unsigned int state = start, pos;
+
+	*retpos = NULL;
+	if (state == 0)
+		return 0;
+
+	/* current state is <state>, matching character *str */
+	if (dfa->tables[YYTD_ID_EC]) {
+		/* Equivalence class table defined */
+		u8 *equiv = EQUIV_TABLE(dfa);
+		/* default is direct to next state */
+		for (; n; n--) {
+			pos = base_idx(base[state]) + equiv[(u8) *str++];
+			if (check[pos] == state)
+				state = next[pos];
+			else
+				state = def[state];
+			if (accept[state])
+				break;
+		}
+	} else {
+		/* default is direct to next state */
+		for (; n; n--) {
+			pos = base_idx(base[state]) + (u8) *str++;
+			if (check[pos] == state)
+				state = next[pos];
+			else
+				state = def[state];
+			if (accept[state])
+				break;
+		}
+	}
+
+	*retpos = str;
 	return state;
 }

@@ -1361,7 +1361,7 @@ struct bio *bio_copy_user_iov(struct request_queue *q,
 	/*
 	 * success
 	 */
-	if (((iter->type & WRITE) && (!map_data || !map_data->null_mapped)) ||
+	if ((iov_iter_rw(iter) == WRITE && (!map_data || !map_data->null_mapped)) ||
 	    (map_data && map_data->from_user)) {
 		ret = bio_copy_from_iter(bio, *iter);
 		if (ret)
@@ -1393,106 +1393,71 @@ struct bio *bio_map_user_iov(struct request_queue *q,
 			     gfp_t gfp_mask)
 {
 	int j;
-	int nr_pages = 0;
-	struct page **pages;
 	struct bio *bio;
-	int cur_page = 0;
-	int ret, offset;
+	int ret;
 	struct iov_iter i;
-	struct iovec iov;
 	struct bio_vec *bvec;
 
-	iov_for_each(iov, i, *iter) {
-		unsigned long uaddr = (unsigned long) iov.iov_base;
-		unsigned long len = iov.iov_len;
-		unsigned long end = (uaddr + len + PAGE_SIZE - 1) >> PAGE_SHIFT;
-		unsigned long start = uaddr >> PAGE_SHIFT;
-
-		/*
-		 * Overflow, abort
-		 */
-		if (end < start)
-			return ERR_PTR(-EINVAL);
-
-		nr_pages += end - start;
-		/*
-		 * buffer must be aligned to at least logical block size for now
-		 */
-		if (uaddr & queue_dma_alignment(q))
-			return ERR_PTR(-EINVAL);
-	}
-
-	if (!nr_pages)
+	if (!iov_iter_count(iter))
 		return ERR_PTR(-EINVAL);
 
-	bio = bio_kmalloc(gfp_mask, nr_pages);
+	bio = bio_kmalloc(gfp_mask, iov_iter_npages(iter, BIO_MAX_PAGES));
 	if (!bio)
 		return ERR_PTR(-ENOMEM);
 
-	ret = -ENOMEM;
-	pages = kcalloc(nr_pages, sizeof(struct page *), gfp_mask);
-	if (!pages)
-		goto out;
+	i = *iter;
+	while (iov_iter_count(&i)) {
+		struct page **pages;
+		ssize_t bytes;
+		size_t offs, added = 0;
+		int npages;
 
-	iov_for_each(iov, i, *iter) {
-		unsigned long uaddr = (unsigned long) iov.iov_base;
-		unsigned long len = iov.iov_len;
-		unsigned long end = (uaddr + len + PAGE_SIZE - 1) >> PAGE_SHIFT;
-		unsigned long start = uaddr >> PAGE_SHIFT;
-		const int local_nr_pages = end - start;
-		const int page_limit = cur_page + local_nr_pages;
-
-		ret = get_user_pages_fast(uaddr, local_nr_pages,
-				(iter->type & WRITE) != WRITE,
-				&pages[cur_page]);
-		if (unlikely(ret < local_nr_pages)) {
-			for (j = cur_page; j < page_limit; j++) {
-				if (!pages[j])
-					break;
-				put_page(pages[j]);
-			}
-			ret = -EFAULT;
+		bytes = iov_iter_get_pages_alloc(&i, &pages, LONG_MAX, &offs);
+		if (unlikely(bytes <= 0)) {
+			ret = bytes ? bytes : -EFAULT;
 			goto out_unmap;
 		}
 
-		offset = offset_in_page(uaddr);
-		for (j = cur_page; j < page_limit; j++) {
-			unsigned int bytes = PAGE_SIZE - offset;
-			unsigned short prev_bi_vcnt = bio->bi_vcnt;
+		npages = DIV_ROUND_UP(offs + bytes, PAGE_SIZE);
 
-			if (len <= 0)
-				break;
-			
-			if (bytes > len)
-				bytes = len;
+		if (unlikely(offs & queue_dma_alignment(q))) {
+			ret = -EINVAL;
+			j = 0;
+		} else {
+			for (j = 0; j < npages; j++) {
+				struct page *page = pages[j];
+				unsigned int n = PAGE_SIZE - offs;
+				unsigned short prev_bi_vcnt = bio->bi_vcnt;
 
-			/*
-			 * sorry...
-			 */
-			if (bio_add_pc_page(q, bio, pages[j], bytes, offset) <
-					    bytes)
-				break;
+				if (n > bytes)
+					n = bytes;
 
-			/*
-			 * check if vector was merged with previous
-			 * drop page reference if needed
-			 */
-			if (bio->bi_vcnt == prev_bi_vcnt)
-				put_page(pages[j]);
+				if (!bio_add_pc_page(q, bio, page, n, offs))
+					break;
 
-			len -= bytes;
-			offset = 0;
+				/*
+				 * check if vector was merged with previous
+				 * drop page reference if needed
+				 */
+				if (bio->bi_vcnt == prev_bi_vcnt)
+					put_page(page);
+
+				added += n;
+				bytes -= n;
+				offs = 0;
+			}
+			iov_iter_advance(&i, added);
 		}
-
-		cur_page = j;
 		/*
 		 * release the pages we didn't map into the bio, if any
 		 */
-		while (j < page_limit)
+		while (j < npages)
 			put_page(pages[j++]);
+		kvfree(pages);
+		/* couldn't stuff something into bio? */
+		if (bytes)
+			break;
 	}
-
-	kfree(pages);
 
 	bio_set_flag(bio, BIO_USER_MAPPED);
 
@@ -1509,8 +1474,6 @@ struct bio *bio_map_user_iov(struct request_queue *q,
 	bio_for_each_segment_all(bvec, bio, j) {
 		put_page(bvec->bv_page);
 	}
- out:
-	kfree(pages);
 	bio_put(bio);
 	return ERR_PTR(ret);
 }

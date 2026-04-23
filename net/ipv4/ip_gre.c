@@ -751,32 +751,67 @@ free_skb:
 	return NETDEV_TX_OK;
 }
 
-static int ipgre_tunnel_ioctl(struct net_device *dev,
-			      struct ifreq *ifr, int cmd)
+static void ipgre_link_update(struct net_device *dev, bool set_mtu)
+{
+	struct ip_tunnel *tunnel = netdev_priv(dev);
+	int len;
+
+	len = tunnel->tun_hlen;
+	tunnel->tun_hlen = gre_calc_hlen(tunnel->parms.o_flags);
+	len = tunnel->tun_hlen - len;
+	tunnel->hlen = tunnel->hlen + len;
+
+	dev->needed_headroom = dev->needed_headroom + len;
+	if (set_mtu)
+		dev->mtu = max_t(int, dev->mtu - len, 68);
+
+	if (!(tunnel->parms.o_flags & TUNNEL_SEQ)) {
+		if (!(tunnel->parms.o_flags & TUNNEL_CSUM) ||
+		    tunnel->encap.type == TUNNEL_ENCAP_NONE) {
+			dev->features |= NETIF_F_GSO_SOFTWARE;
+			dev->hw_features |= NETIF_F_GSO_SOFTWARE;
+		} else {
+			dev->features &= ~NETIF_F_GSO_SOFTWARE;
+			dev->hw_features &= ~NETIF_F_GSO_SOFTWARE;
+		}
+		dev->features |= NETIF_F_LLTX;
+	} else {
+		dev->hw_features &= ~NETIF_F_GSO_SOFTWARE;
+		dev->features &= ~(NETIF_F_LLTX | NETIF_F_GSO_SOFTWARE);
+	}
+}
+
+static int ipgre_tunnel_ctl(struct net_device *dev, struct ip_tunnel_parm *p,
+			    int cmd)
 {
 	int err;
-	struct ip_tunnel_parm p;
 
-	if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p)))
-		return -EFAULT;
 	if (cmd == SIOCADDTUNNEL || cmd == SIOCCHGTUNNEL) {
-		if (p.iph.version != 4 || p.iph.protocol != IPPROTO_GRE ||
-		    p.iph.ihl != 5 || (p.iph.frag_off&htons(~IP_DF)) ||
-		    ((p.i_flags|p.o_flags)&(GRE_VERSION|GRE_ROUTING)))
+		if (p->iph.version != 4 || p->iph.protocol != IPPROTO_GRE ||
+		    p->iph.ihl != 5 || (p->iph.frag_off & htons(~IP_DF)) ||
+		    ((p->i_flags | p->o_flags) & (GRE_VERSION | GRE_ROUTING)))
 			return -EINVAL;
 	}
-	p.i_flags = gre_flags_to_tnl_flags(p.i_flags);
-	p.o_flags = gre_flags_to_tnl_flags(p.o_flags);
 
-	err = ip_tunnel_ioctl(dev, &p, cmd);
+	p->i_flags = gre_flags_to_tnl_flags(p->i_flags);
+	p->o_flags = gre_flags_to_tnl_flags(p->o_flags);
+
+	err = ip_tunnel_ctl(dev, p, cmd);
 	if (err)
 		return err;
 
-	p.i_flags = gre_tnl_flags_to_gre_flags(p.i_flags);
-	p.o_flags = gre_tnl_flags_to_gre_flags(p.o_flags);
+	if (cmd == SIOCCHGTUNNEL) {
+		struct ip_tunnel *t = netdev_priv(dev);
 
-	if (copy_to_user(ifr->ifr_ifru.ifru_data, &p, sizeof(p)))
-		return -EFAULT;
+		t->parms.i_flags = p->i_flags;
+		t->parms.o_flags = p->o_flags;
+
+		if (strcmp(dev->rtnl_link_ops->kind, "erspan"))
+			ipgre_link_update(dev, true);
+	}
+
+	p->i_flags = gre_tnl_flags_to_gre_flags(p->i_flags);
+	p->o_flags = gre_tnl_flags_to_gre_flags(p->o_flags);
 	return 0;
 }
 
@@ -894,10 +929,11 @@ static const struct net_device_ops ipgre_netdev_ops = {
 	.ndo_stop		= ipgre_close,
 #endif
 	.ndo_start_xmit		= ipgre_xmit,
-	.ndo_do_ioctl		= ipgre_tunnel_ioctl,
+	.ndo_do_ioctl		= ip_tunnel_ioctl,
 	.ndo_change_mtu		= ip_tunnel_change_mtu,
 	.ndo_get_stats64	= ip_tunnel_get_stats64,
 	.ndo_get_iflink		= ip_tunnel_get_iflink,
+	.ndo_tunnel_ctl		= ipgre_tunnel_ctl,
 };
 
 #define GRE_FEATURES (NETIF_F_SG |		\
@@ -1282,9 +1318,9 @@ static int ipgre_changelink(struct net_device *dev, struct nlattr *tb[],
 			    struct netlink_ext_ack *extack)
 {
 	struct ip_tunnel *t = netdev_priv(dev);
-	struct ip_tunnel_parm p;
 	struct ip_tunnel_encap ipencap;
 	__u32 fwmark = t->fwmark;
+	struct ip_tunnel_parm p;
 	int err;
 
 	if (ipgre_netlink_encap_parms(data, &ipencap)) {
@@ -1297,7 +1333,18 @@ static int ipgre_changelink(struct net_device *dev, struct nlattr *tb[],
 	err = ipgre_netlink_parms(dev, data, tb, &p, &fwmark);
 	if (err < 0)
 		return err;
-	return ip_tunnel_changelink(dev, tb, &p, fwmark);
+
+	err = ip_tunnel_changelink(dev, tb, &p, fwmark);
+	if (err < 0)
+		return err;
+
+	t->parms.i_flags = p.i_flags;
+	t->parms.o_flags = p.o_flags;
+
+	if (strcmp(dev->rtnl_link_ops->kind, "erspan"))
+		ipgre_link_update(dev, !tb[IFLA_MTU]);
+
+	return 0;
 }
 
 static size_t ipgre_get_size(const struct net_device *dev)

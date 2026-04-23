@@ -84,18 +84,23 @@ static __always_inline bool atomic64_try_cmpxchg(atomic64_t *v, s64 *old, s64 ne
 }
 #endif
 
+#ifdef arch_atomic_fetch_add_unless
+#define atomic_fetch_add_unless atomic_fetch_add_unless
 static __always_inline int atomic_fetch_add_unless(atomic_t *v, int a, int u)
 {
 	kasan_check_write(v, sizeof(*v));
 	return arch_atomic_fetch_add_unless(v, a, u);
 }
+#endif
 
-
-static __always_inline bool atomic64_add_unless(atomic64_t *v, s64 a, s64 u)
+#ifdef arch_atomic64_fetch_add_unless
+#define atomic64_fetch_add_unless atomic64_fetch_add_unless
+static __always_inline s64 atomic64_fetch_add_unless(atomic64_t *v, s64 a, s64 u)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_add_unless(v, a, u);
+	return arch_atomic64_fetch_add_unless(v, a, u);
 }
+#endif
 
 static __always_inline void atomic_inc(atomic_t *v)
 {
@@ -205,11 +210,14 @@ static __always_inline s64 atomic64_dec_return(atomic64_t *v)
 	return arch_atomic64_dec_return(v);
 }
 
-static __always_inline s64 atomic64_inc_not_zero(atomic64_t *v)
+#ifdef arch_atomic64_inc_not_zero
+#define atomic64_inc_not_zero atomic64_inc_not_zero
+static __always_inline bool atomic64_inc_not_zero(atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
 	return arch_atomic64_inc_not_zero(v);
 }
+#endif
 
 static __always_inline s64 atomic64_dec_if_positive(atomic64_t *v)
 {

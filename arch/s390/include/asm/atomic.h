@@ -90,21 +90,6 @@ static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 	return __atomic_cmpxchg(&v->counter, old, new);
 }
 
-static inline int atomic_fetch_add_unless(atomic_t *v, int a, int u)
-{
-	int c, old;
-	c = atomic_read(v);
-	for (;;) {
-		if (unlikely(c == u))
-			break;
-		old = atomic_cmpxchg(v, c, c + a);
-		if (likely(old == c))
-			break;
-		c = old;
-	}
-	return c;
-}
-
 #define ATOMIC64_INIT(i)  { (i) }
 
 static inline long atomic64_read(const atomic64_t *v)
@@ -168,22 +153,6 @@ ATOMIC64_OPS(xor)
 
 #undef ATOMIC64_OPS
 
-static inline int atomic64_add_unless(atomic64_t *v, long i, long u)
-{
-	long c, old;
-
-	c = atomic64_read(v);
-	for (;;) {
-		if (unlikely(c == u))
-			break;
-		old = atomic64_cmpxchg(v, c, c + i);
-		if (likely(old == c))
-			break;
-		c = old;
-	}
-	return c != u;
-}
-
 static inline long atomic64_dec_if_positive(atomic64_t *v)
 {
 	long c, old, dec;
@@ -212,6 +181,5 @@ static inline long atomic64_dec_if_positive(atomic64_t *v)
 #define atomic64_dec(_v)		atomic64_sub(1, _v)
 #define atomic64_dec_return(_v)		atomic64_sub_return(1, _v)
 #define atomic64_dec_and_test(_v)	(atomic64_sub_return(1, _v) == 0)
-#define atomic64_inc_not_zero(v)	atomic64_add_unless((v), 1, 0)
 
 #endif /* __ARCH_S390_ATOMIC__  */
