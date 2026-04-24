@@ -101,9 +101,16 @@
 
 #define SO_ZEROCOPY		0x003e
 
+#define SO_TXTIME		0x003f
+#define SCM_TXTIME		SO_TXTIME
+
+#define SO_BINDTOIFINDEX	0x0041
+
 /* Security levels - as per NRL IPv6 - don't actually do anything */
 #define SO_SECURITY_AUTHENTICATION		0x5001
 #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
 #define SO_SECURITY_ENCRYPTION_NETWORK		0x5004
+
+#define SO_DETACH_REUSEPORT_BPF  0x0047
 
 #endif /* _ASM_SOCKET_H */

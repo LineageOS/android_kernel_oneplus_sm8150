@@ -64,6 +64,12 @@ enum {
 	 * specified at mount time and thus is implemented here.
 	 */
 	CGRP_CPUSET_CLONE_CHILDREN,
+
+	/* Control group has to be frozen. */
+	CGRP_FREEZE,
+
+	/* Cgroup is frozen. */
+	CGRP_FROZEN,
 };
 
 /* cgroup_root->flags */
@@ -82,6 +88,11 @@ enum {
 	 * Enable cpuset controller in v1 cgroup to use v2 behavior.
 	 */
 	CGRP_ROOT_CPUSET_V2_MODE = (1 << 4),
+
+	/*
+	 * Enable legacy local memory.events.
+	 */
+	CGRP_ROOT_MEMORY_LOCAL_EVENTS = (1 << 5),
 };
 
 /* cftype->flags */
@@ -260,21 +271,30 @@ struct css_set {
 	struct rcu_head rcu_head;
 };
 
+struct cgroup_freezer_state {
+	/* Should the cgroup and its descendants be frozen. */
+	bool freeze;
+
+	/* Should the cgroup actually be frozen? */
+	int e_freeze;
+
+	/* Fields below are protected by css_set_lock */
+
+	/* Number of frozen descendant cgroups */
+	int nr_frozen_descendants;
+
+	/*
+	 * Number of tasks, which are counted as frozen:
+	 * frozen, SIGSTOPped, and PTRACEd.
+	 */
+	int nr_frozen_tasks;
+};
+
 struct cgroup {
 	/* self css with NULL ->ss, points back to this cgroup */
 	struct cgroup_subsys_state self;
 
 	unsigned long flags;		/* "unsigned long" so bitops work */
-
-	/*
-	 * idr allocated in-hierarchy ID.
-	 *
-	 * ID 0 is not used, the ID of the root cgroup is always 1, and a
-	 * new cgroup will be assigned with a smallest available ID.
-	 *
-	 * Allocating/Removing ID must be protected by cgroup_mutex.
-	 */
-	int id;
 
 	/*
 	 * The depth this cgroup is at.  The root is at depth zero and each
@@ -384,8 +404,11 @@ struct cgroup {
 	/* used to store eBPF programs */
 	struct cgroup_bpf bpf;
 
+	/* Used to store internal freezer state */
+	struct cgroup_freezer_state freezer;
+
 	/* ids of the ancestors at each level including self */
-	int ancestor_ids[];
+	u64 ancestor_ids[];
 };
 
 /*
@@ -406,7 +429,7 @@ struct cgroup_root {
 	struct cgroup cgrp;
 
 	/* for cgrp->ancestor_ids[0] */
-	int cgrp_ancestor_id_storage;
+	u64 cgrp_ancestor_id_storage;
 
 	/* Number of cgroups in the hierarchy, used only for /proc/cgroups */
 	atomic_t nr_cgrps;
@@ -416,9 +439,6 @@ struct cgroup_root {
 
 	/* Hierarchy-specific flags */
 	unsigned int flags;
-
-	/* IDs for cgroups in this hierarchy */
-	struct idr cgroup_idr;
 
 	/* The path to use for release notifications. */
 	char release_agent_path[PATH_MAX];

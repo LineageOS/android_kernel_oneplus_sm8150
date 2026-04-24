@@ -35,7 +35,7 @@ unexport GREP_OPTIONS
 # Most importantly: sub-Makefiles should only ever modify files in
 # their own directory. If in some directory we have a dependency on
 # a file in another dir (which doesn't happen often, but it's often
-# unavoidable when linking the built-in.o targets which finally
+# unavoidable when linking the built-in.a targets which finally
 # turn into vmlinux), we will call a sub make in that other dir, and
 # after that we are sure that everything which is in that other dir
 # is now up to date.
@@ -409,6 +409,7 @@ READELF		= $(CROSS_COMPILE)readelf
 STRIP		= $(CROSS_COMPILE)strip
 endif
 PAHOLE		= pahole
+RESOLVE_BTFIDS	= $(objtree)/tools/bpf/resolve_btfids/resolve_btfids
 AWK		= awk
 GENKSYMS	= scripts/genksyms/genksyms
 INSTALLKERNEL  := installkernel
@@ -473,7 +474,7 @@ CLANG_FLAGS :=
 #endif // OPLUS_FEATURE_BUILD
 
 export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE LD CC
-export CPP AR NM STRIP OBJCOPY OBJDUMP PAHOLE READELF HOSTLDFLAGS HOST_LOADLIBES
+export CPP AR NM STRIP OBJCOPY OBJDUMP PAHOLE RESOLVE_BTFIDS READELF HOSTLDFLAGS HOST_LOADLIBES
 export MAKE AWK GENKSYMS INSTALLKERNEL PERL PYTHON UTS_MACHINE
 export HOSTCXX HOSTCXXFLAGS LDFLAGS_MODULE CHECK CHECKFLAGS
 
@@ -559,6 +560,11 @@ RETPOLINE_CFLAGS := $(call cc-option,$(RETPOLINE_CFLAGS_GCC),$(call cc-option,$(
 RETPOLINE_VDSO_CFLAGS := $(call cc-option,$(RETPOLINE_VDSO_CFLAGS_GCC),$(call cc-option,$(RETPOLINE_VDSO_CFLAGS_CLANG)))
 export RETPOLINE_CFLAGS
 export RETPOLINE_VDSO_CFLAGS
+
+ifeq ($(call shell-cached,$(CONFIG_SHELL) $(srctree)/scripts/cc-can-link.sh $(CC)), y)
+  CC_CAN_LINK := y
+  export CC_CAN_LINK
+endif
 
 ifeq ($(config-targets),1)
 # ===========================================================================
@@ -1169,13 +1175,13 @@ vmlinux-dirs	:= $(patsubst %/,%,$(filter %/, $(init-y) $(init-m) \
 vmlinux-alldirs	:= $(sort $(vmlinux-dirs) $(patsubst %/,%,$(filter %/, \
 		     $(init-) $(core-) $(drivers-) $(net-) $(libs-) $(virt-))))
 
-init-y		:= $(patsubst %/, %/built-in.o, $(init-y))
-core-y		:= $(patsubst %/, %/built-in.o, $(core-y))
-drivers-y	:= $(patsubst %/, %/built-in.o, $(drivers-y))
-net-y		:= $(patsubst %/, %/built-in.o, $(net-y))
+init-y		:= $(patsubst %/, %/built-in.a, $(init-y))
+core-y		:= $(patsubst %/, %/built-in.a, $(core-y))
+drivers-y	:= $(patsubst %/, %/built-in.a, $(drivers-y))
+net-y		:= $(patsubst %/, %/built-in.a, $(net-y))
 libs-y1		:= $(patsubst %/, %/lib.a, $(libs-y))
-libs-y2		:= $(filter-out %.a, $(patsubst %/, %/built-in.o, $(libs-y)))
-virt-y		:= $(patsubst %/, %/built-in.o, $(virt-y))
+libs-y2		:= $(patsubst %/, %/built-in.a, $(filter-out %.a, $(libs-y)))
+virt-y		:= $(patsubst %/, %/built-in.a, $(virt-y))
 
 # Externally visible symbols (used by link-vmlinux.sh)
 export KBUILD_VMLINUX_INIT := $(head-y) $(init-y)

@@ -8,11 +8,10 @@
 enum pid_type
 {
 	PIDTYPE_PID,
+	PIDTYPE_TGID,
 	PIDTYPE_PGID,
 	PIDTYPE_SID,
 	PIDTYPE_MAX,
-	/* only valid to __task_pid_nr_ns() */
-	__PIDTYPE_TGID
 };
 
 /*
@@ -71,12 +70,6 @@ struct pid
 };
 
 extern struct pid init_struct_pid;
-
-struct pid_link
-{
-	struct hlist_node node;
-	struct pid *pid;
-};
 
 extern const struct file_operations pidfd_fops;
 
@@ -184,7 +177,7 @@ pid_t pid_vnr(struct pid *pid);
 	do {								\
 		if ((pid) != NULL)					\
 			hlist_for_each_entry_rcu((task),		\
-				&(pid)->tasks[type], pids[type].node) {
+				&(pid)->tasks[type], pid_links[type]) {
 
 			/*
 			 * Both old and new leaders may be attached to

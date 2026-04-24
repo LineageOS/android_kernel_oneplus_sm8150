@@ -15,7 +15,7 @@
 #include <linux/ctype.h>
 #include <linux/security.h>
 #include <linux/vmalloc.h>
-#include <linux/module.h>
+#include <linux/init.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <linux/mount.h>
@@ -30,10 +30,9 @@
 #include "include/apparmor.h"
 #include "include/apparmorfs.h"
 #include "include/audit.h"
-#include "include/context.h"
+#include "include/cred.h"
 #include "include/crypto.h"
 #include "include/ipc.h"
-#include "include/policy_ns.h"
 #include "include/label.h"
 #include "include/policy.h"
 #include "include/policy_ns.h"

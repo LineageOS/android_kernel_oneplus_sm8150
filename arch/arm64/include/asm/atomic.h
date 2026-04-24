@@ -40,17 +40,6 @@
 
 #include <asm/cmpxchg.h>
 
-#define ___atomic_add_unless(v, a, u, sfx)				\
-({									\
-	typeof((v)->counter) c, old;					\
-									\
-	c = atomic##sfx##_read(v);					\
-	while (c != (u) &&						\
-	      (old = atomic##sfx##_cmpxchg((v), c, c + (a))) != c)	\
-		c = old;						\
-	c;								\
- })
-
 #define ATOMIC_INIT(i)	{ (i) }
 
 #define atomic_read(v)			READ_ONCE((v)->counter)
@@ -125,7 +114,6 @@
 #define atomic_dec_and_test(v)		(atomic_dec_return(v) == 0)
 #define atomic_sub_and_test(i, v)	(atomic_sub_return((i), (v)) == 0)
 #define atomic_add_negative(i, v)	(atomic_add_return((i), (v)) < 0)
-#define atomic_fetch_add_unless(v, a, u)	___atomic_add_unless(v, a, u,)
 #define atomic_andnot			atomic_andnot
 
 /*
@@ -201,10 +189,7 @@
 #define atomic64_dec_and_test(v)	(atomic64_dec_return(v) == 0)
 #define atomic64_sub_and_test(i, v)	(atomic64_sub_return((i), (v)) == 0)
 #define atomic64_add_negative(i, v)	(atomic64_add_return((i), (v)) < 0)
-#define atomic64_add_unless(v, a, u)	(___atomic_add_unless(v, a, u, 64) != u)
 #define atomic64_andnot			atomic64_andnot
-
-#define atomic64_inc_not_zero(v)	atomic64_add_unless((v), 1, 0)
 
 #endif
 #endif
