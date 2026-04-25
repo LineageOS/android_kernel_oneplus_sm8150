@@ -82,7 +82,7 @@
 
 #include "include/apparmor.h"
 #include "include/capability.h"
-#include "include/context.h"
+#include "include/cred.h"
 #include "include/file.h"
 #include "include/ipc.h"
 #include "include/match.h"
@@ -845,8 +845,9 @@ static struct aa_profile *update_to_newest_parent(struct aa_profile *new)
  * @udata: serialized data stream  (NOT NULL)
  *
  * unpack and replace a profile on the profile list and uses of that profile
- * by any aa_task_ctx.  If the profile does not exist on the profile list
- * it is added.
+ * by any task creds via invalidating the old version of the profile, which
+ * tasks will notice to update their own cred.  If the profile does not exist
+ * on the profile list it is added.
  *
  * Returns: size of data consumed else error code on failure.
  */

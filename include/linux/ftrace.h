@@ -79,10 +79,6 @@ ftrace_func_t ftrace_ops_get_func(struct ftrace_ops *ops);
  * ENABLED - set/unset when ftrace_ops is registered/unregistered
  * DYNAMIC - set when ftrace_ops is registered to denote dynamically
  *           allocated ftrace_ops which need special care
- * PER_CPU - set manualy by ftrace_ops user to denote the ftrace_ops
- *           could be controlled by following calls:
- *             ftrace_function_local_enable
- *             ftrace_function_local_disable
  * SAVE_REGS - The ftrace_ops wants regs saved at each function called
  *            and passed to the callback. If this flag is set, but the
  *            architecture does not support passing regs
@@ -122,25 +118,30 @@ ftrace_func_t ftrace_ops_get_func(struct ftrace_ops *ops);
  * PID     - Is affected by set_ftrace_pid (allows filtering on those pids)
  * RCU     - Set when the ops can only be called when RCU is watching.
  * TRACE_ARRAY - The ops->private points to a trace_array descriptor.
+ * PERMANENT - Set when the ops is permanent and should not be affected by
+ *             ftrace_enabled.
+ * DIRECT - Used by the direct ftrace_ops helper for direct functions
+ *            (internal ftrace only, should not be used by others)
  */
 enum {
 	FTRACE_OPS_FL_ENABLED			= 1 << 0,
 	FTRACE_OPS_FL_DYNAMIC			= 1 << 1,
-	FTRACE_OPS_FL_PER_CPU			= 1 << 2,
-	FTRACE_OPS_FL_SAVE_REGS			= 1 << 3,
-	FTRACE_OPS_FL_SAVE_REGS_IF_SUPPORTED	= 1 << 4,
-	FTRACE_OPS_FL_RECURSION_SAFE		= 1 << 5,
-	FTRACE_OPS_FL_STUB			= 1 << 6,
-	FTRACE_OPS_FL_INITIALIZED		= 1 << 7,
-	FTRACE_OPS_FL_DELETED			= 1 << 8,
-	FTRACE_OPS_FL_ADDING			= 1 << 9,
-	FTRACE_OPS_FL_REMOVING			= 1 << 10,
-	FTRACE_OPS_FL_MODIFYING			= 1 << 11,
-	FTRACE_OPS_FL_ALLOC_TRAMP		= 1 << 12,
-	FTRACE_OPS_FL_IPMODIFY			= 1 << 13,
-	FTRACE_OPS_FL_PID			= 1 << 14,
-	FTRACE_OPS_FL_RCU			= 1 << 15,
-	FTRACE_OPS_FL_TRACE_ARRAY		= 1 << 16,
+	FTRACE_OPS_FL_SAVE_REGS			= 1 << 2,
+	FTRACE_OPS_FL_SAVE_REGS_IF_SUPPORTED	= 1 << 3,
+	FTRACE_OPS_FL_RECURSION_SAFE		= 1 << 4,
+	FTRACE_OPS_FL_STUB			= 1 << 5,
+	FTRACE_OPS_FL_INITIALIZED		= 1 << 6,
+	FTRACE_OPS_FL_DELETED			= 1 << 7,
+	FTRACE_OPS_FL_ADDING			= 1 << 8,
+	FTRACE_OPS_FL_REMOVING			= 1 << 9,
+	FTRACE_OPS_FL_MODIFYING			= 1 << 10,
+	FTRACE_OPS_FL_ALLOC_TRAMP		= 1 << 11,
+	FTRACE_OPS_FL_IPMODIFY			= 1 << 12,
+	FTRACE_OPS_FL_PID			= 1 << 13,
+	FTRACE_OPS_FL_RCU			= 1 << 14,
+	FTRACE_OPS_FL_TRACE_ARRAY		= 1 << 15,
+	FTRACE_OPS_FL_PERMANENT                 = 1 << 16,
+	FTRACE_OPS_FL_DIRECT			= 1 << 17,
 };
 
 #ifdef CONFIG_DYNAMIC_FTRACE
@@ -173,7 +174,6 @@ struct ftrace_ops {
 	unsigned long			flags;
 	void				*private;
 	ftrace_func_t			saved_func;
-	int __percpu			*disabled;
 #ifdef CONFIG_DYNAMIC_FTRACE
 	struct ftrace_ops_hash		local_hash;
 	struct ftrace_ops_hash		*func_hash;
@@ -205,55 +205,6 @@ int register_ftrace_function(struct ftrace_ops *ops);
 int unregister_ftrace_function(struct ftrace_ops *ops);
 void clear_ftrace_function(void);
 
-/**
- * ftrace_function_local_enable - enable ftrace_ops on current cpu
- *
- * This function enables tracing on current cpu by decreasing
- * the per cpu control variable.
- * It must be called with preemption disabled and only on ftrace_ops
- * registered with FTRACE_OPS_FL_PER_CPU. If called without preemption
- * disabled, this_cpu_ptr will complain when CONFIG_DEBUG_PREEMPT is enabled.
- */
-static inline void ftrace_function_local_enable(struct ftrace_ops *ops)
-{
-	if (WARN_ON_ONCE(!(ops->flags & FTRACE_OPS_FL_PER_CPU)))
-		return;
-
-	(*this_cpu_ptr(ops->disabled))--;
-}
-
-/**
- * ftrace_function_local_disable - disable ftrace_ops on current cpu
- *
- * This function disables tracing on current cpu by increasing
- * the per cpu control variable.
- * It must be called with preemption disabled and only on ftrace_ops
- * registered with FTRACE_OPS_FL_PER_CPU. If called without preemption
- * disabled, this_cpu_ptr will complain when CONFIG_DEBUG_PREEMPT is enabled.
- */
-static inline void ftrace_function_local_disable(struct ftrace_ops *ops)
-{
-	if (WARN_ON_ONCE(!(ops->flags & FTRACE_OPS_FL_PER_CPU)))
-		return;
-
-	(*this_cpu_ptr(ops->disabled))++;
-}
-
-/**
- * ftrace_function_local_disabled - returns ftrace_ops disabled value
- *                                  on current cpu
- *
- * This function returns value of ftrace_ops::disabled on current cpu.
- * It must be called with preemption disabled and only on ftrace_ops
- * registered with FTRACE_OPS_FL_PER_CPU. If called without preemption
- * disabled, this_cpu_ptr will complain when CONFIG_DEBUG_PREEMPT is enabled.
- */
-static inline int ftrace_function_local_disabled(struct ftrace_ops *ops)
-{
-	WARN_ON_ONCE(!(ops->flags & FTRACE_OPS_FL_PER_CPU));
-	return *this_cpu_ptr(ops->disabled);
-}
-
 #ifdef CONFIG_CFI_CLANG
 /* Use a C stub with the correct type for CFI */
 static inline void ftrace_stub(unsigned long a0, unsigned long a1,
@@ -280,6 +231,38 @@ static inline void clear_ftrace_function(void) { }
 static inline void ftrace_kill(void) { }
 static inline void ftrace_free_init_mem(void) { }
 #endif /* CONFIG_FUNCTION_TRACER */
+
+#ifdef CONFIG_DYNAMIC_FTRACE_WITH_DIRECT_CALLS
+int register_ftrace_direct(unsigned long ip, unsigned long addr);
+int unregister_ftrace_direct(unsigned long ip, unsigned long addr);
+int modify_ftrace_direct(unsigned long ip, unsigned long old_addr, unsigned long new_addr);
+#else
+static inline int register_ftrace_direct(unsigned long ip, unsigned long addr)
+{
+	return -ENODEV;
+}
+static inline int unregister_ftrace_direct(unsigned long ip, unsigned long addr)
+{
+	return -ENODEV;
+}
+static inline int modify_ftrace_direct(unsigned long ip,
+				       unsigned long old_addr, unsigned long new_addr)
+{
+	return -ENODEV;
+}
+#endif /* CONFIG_DYNAMIC_FTRACE_WITH_DIRECT_CALLS */
+
+#ifndef CONFIG_HAVE_DYNAMIC_FTRACE_WITH_DIRECT_CALLS
+/*
+ * This must be implemented by the architecture.
+ * It is the way the ftrace direct_ops helper, when called
+ * via ftrace (because there's other callbacks besides the
+ * direct call), can inform the architecture's trampoline that this
+ * routine has a direct caller, and what the caller is.
+ */
+static inline void arch_ftrace_set_direct_caller(struct pt_regs *regs,
+						 unsigned long addr) { }
+#endif /* CONFIG_HAVE_DYNAMIC_FTRACE_WITH_DIRECT_CALLS */
 
 #ifdef CONFIG_STACK_TRACER
 
@@ -382,6 +365,7 @@ bool is_ftrace_trampoline(unsigned long addr);
  *  REGS_EN - the function is set up to save regs.
  *  IPMODIFY - the record allows for the IP address to be changed.
  *  DISABLED - the record is not ready to be touched yet
+ *  DIRECT   - there is a direct function to call
  *
  * When a new ftrace_ops is registered and wants a function to save
  * pt_regs, the rec->flag REGS is set. When the function has been
@@ -397,10 +381,12 @@ enum {
 	FTRACE_FL_TRAMP_EN	= (1UL << 27),
 	FTRACE_FL_IPMODIFY	= (1UL << 26),
 	FTRACE_FL_DISABLED	= (1UL << 25),
+	FTRACE_FL_DIRECT	= (1UL << 24),
+	FTRACE_FL_DIRECT_EN	= (1UL << 23),
 };
 
-#define FTRACE_REF_MAX_SHIFT	25
-#define FTRACE_FL_BITS		7
+#define FTRACE_REF_MAX_SHIFT	23
+#define FTRACE_FL_BITS		9
 #define FTRACE_FL_MASKED_BITS	((1UL << FTRACE_FL_BITS) - 1)
 #define FTRACE_FL_MASK		(FTRACE_FL_MASKED_BITS << FTRACE_REF_MAX_SHIFT)
 #define FTRACE_REF_MAX		((1UL << FTRACE_REF_MAX_SHIFT) - 1)
@@ -966,8 +952,7 @@ extern int __disable_trace_on_warning;
 #endif
 
 int tracepoint_printk_sysctl(struct ctl_table *table, int write,
-			     void __user *buffer, size_t *lenp,
-			     loff_t *ppos);
+			     void *buffer, size_t *lenp, loff_t *ppos);
 
 #else /* CONFIG_TRACING */
 static inline void  disable_trace_on_warning(void) { }

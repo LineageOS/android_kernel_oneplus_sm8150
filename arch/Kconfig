@@ -247,8 +247,8 @@ config ARCH_HAS_CPU_FINALIZE_INIT
 config ARCH_HAS_SET_DIRECT_MAP
 	bool
 
-# Select if arch init_task initializer is different to init/init_task.c
-config ARCH_INIT_TASK
+# Select if arch init_task must go in the __init_task_data section
+config ARCH_TASK_STRUCT_ON_STACK
        bool
 
 # Select if arch has its private alloc_task_struct() function
@@ -606,12 +606,6 @@ config CC_STACKPROTECTOR_STRONG
 	  size by about 2%.
 
 endchoice
-
-config THIN_ARCHIVES
-	def_bool y
-	help
-	  Select this if the architecture wants to use thin archives
-	  instead of ld -r to create the built-in.o files.
 
 config LD_DEAD_CODE_DATA_ELIMINATION
 	bool

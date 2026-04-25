@@ -22,7 +22,7 @@
 
 #include "include/audit.h"
 #include "include/apparmorfs.h"
-#include "include/context.h"
+#include "include/cred.h"
 #include "include/domain.h"
 #include "include/file.h"
 #include "include/ipc.h"
@@ -761,10 +761,11 @@ int apparmor_bprm_set_creds(struct linux_binprm *bprm)
 	if (bprm->called_set_creds)
 		return 0;
 
-	ctx = cred_ctx(bprm->cred);
+	ctx = task_ctx(current);
+	AA_BUG(!cred_label(bprm->cred));
 	AA_BUG(!ctx);
 
-	label = aa_get_newest_label(ctx->label);
+	label = aa_get_newest_label(cred_label(bprm->cred));
 
 	/* buffer freed below, name is pointer into buffer */
 	get_buffers(buffer);
@@ -820,14 +821,11 @@ int apparmor_bprm_set_creds(struct linux_binprm *bprm)
 		}
 		bprm->per_clear |= PER_CLEAR_ON_SETID;
 	}
-	aa_put_label(ctx->label);
-	/* transfer reference, released when ctx is freed */
-	ctx->label = new;
+	aa_put_label(cred_label(bprm->cred));
+	/* transfer reference, released when cred is freed */
+	set_cred_label(bprm->cred, new);
 
 done:
-	/* clear out temporary/transitional state from the context */
-	aa_clear_task_ctx_trans(ctx);
-
 	aa_put_label(label);
 	put_buffers(buffer);
 
@@ -1036,7 +1034,7 @@ int aa_change_hat(const char *hats[], int count, u64 token, int flags)
 
 	/* released below */
 	cred = get_current_cred();
-	ctx = cred_ctx(cred);
+	ctx = task_ctx(current);
 	label = aa_get_newest_cred_label(cred);
 	previous = aa_get_newest_label(ctx->previous);
 

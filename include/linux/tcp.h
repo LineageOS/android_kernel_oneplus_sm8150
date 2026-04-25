@@ -98,9 +98,12 @@ struct tcp_options_received {
 		tstamp_ok : 1,	/* TIMESTAMP seen on SYN packet		*/
 		dsack : 1,	/* D-SACK is scheduled			*/
 		wscale_ok : 1,	/* Wscale seen on SYN packet		*/
-		sack_ok : 4,	/* SACK seen on SYN packet		*/
+		sack_ok : 3,	/* SACK seen on SYN packet		*/
+		smc_ok : 1,	/* SMC seen on SYN packet		*/
 		snd_wscale : 4,	/* Window scaling received from sender	*/
 		rcv_wscale : 4;	/* Window scaling to send to receiver	*/
+	u8	saw_unknown:1,	/* Received unknown option		*/
+		unused:7;
 	u8	num_sacks;	/* Number of SACK blocks		*/
 	u16	user_mss;	/* mss requested by user in ioctl	*/
 	u16	mss_clamp;	/* Maximal mss, negotiated at connection setup */
@@ -110,6 +113,9 @@ static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
 {
 	rx_opt->tstamp_ok = rx_opt->sack_ok = 0;
 	rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
+#if IS_ENABLED(CONFIG_SMC)
+	rx_opt->smc_ok = 0;
+#endif
 }
 
 /* This is the max number of SACKS that we'll generate and process. It's safe
@@ -211,8 +217,13 @@ struct tcp_sock {
 		u64 mstamp; /* (Re)sent time of the skb */
 		u32 rtt_us;  /* Associated RTT */
 		u32 end_seq; /* Ending TCP sequence of the skb */
-		u8 advanced; /* mstamp advanced since last lost marking */
-		u8 reord;    /* reordering detected */
+		u32 last_delivered; /* tp->delivered at last reo_wnd adj */
+		u8 reo_wnd_steps;   /* Allowed reordering window */
+#define TCP_RACK_RECOVERY_THRESH 16
+		u8 reo_wnd_persist:5, /* No. of recovery since last adj */
+		   dsack_seen:1, /* Whether DSACK seen after last adj */
+		   advanced:1,	 /* mstamp advanced since last lost marking */
+		   reord:1;	 /* reordering detected */
 	} rack;
 	u16	advmss;		/* Advertised MSS			*/
 	u8	tlp_retrans:1,	/* TLP is a retransmission */
@@ -230,12 +241,12 @@ struct tcp_sock {
 		repair      : 1,
 		frto        : 1;/* F-RTO (RFC5682) activated in CA_Loss */
 	u8	repair_queue;
-	u8	syn_data:1,	/* SYN includes data */
+	u8	save_syn:2,	/* Save headers of SYN packet */
+		syn_data:1,	/* SYN includes data */
 		syn_fastopen:1,	/* SYN includes Fast Open option */
 		syn_fastopen_exp:1,/* SYN includes Fast Open exp. option */
 		syn_fastopen_ch:1, /* Active TFO re-enabling probe */
 		syn_data_acked:1,/* data in SYN is acked by SYN-ACK */
-		save_syn:1,	/* Save headers of SYN packet */
 		is_cwnd_limited:1;/* forward progress limited by snd_cwnd? */
 	u32	tlp_high_seq;	/* snd_nxt at the time of TLP */
 
@@ -372,6 +383,9 @@ struct tcp_sock {
 	u32	mtu_info; /* We received an ICMP_FRAG_NEEDED / ICMPV6_PKT_TOOBIG
 			   * while socket was owned by user.
 			   */
+#if IS_ENABLED(CONFIG_SMC)
+	bool	syn_smc;	/* SYN includes SMC */
+#endif
 
 #ifdef CONFIG_TCP_MD5SIG
 /* TCP AF-Specific parts; only used by MD5 Signature support so far */
@@ -386,8 +400,8 @@ struct tcp_sock {
 	/* fastopen_rsk points to request_sock that resulted in this big
 	 * socket. Used to retransmit SYNACKs etc.
 	 */
-	struct request_sock *fastopen_rsk;
-	u32	*saved_syn;
+	struct request_sock __rcu *fastopen_rsk;
+	struct saved_syn *saved_syn;
 };
 
 enum tsq_enum {
@@ -439,8 +453,8 @@ static inline struct tcp_timewait_sock *tcp_twsk(const struct sock *sk)
 
 static inline bool tcp_passive_fastopen(const struct sock *sk)
 {
-	return (sk->sk_state == TCP_SYN_RECV &&
-		tcp_sk(sk)->fastopen_rsk != NULL);
+	return sk->sk_state == TCP_SYN_RECV &&
+	       rcu_access_pointer(tcp_sk(sk)->fastopen_rsk) != NULL;
 }
 
 static inline void fastopen_queue_tune(struct sock *sk, int backlog)
@@ -466,6 +480,12 @@ static inline void tcp_saved_syn_free(struct tcp_sock *tp)
 
 struct sk_buff *tcp_get_timestamping_opt_stats(const struct sock *sk);
 
+static inline u32 tcp_saved_syn_len(const struct saved_syn *saved_syn)
+{
+	return saved_syn->mac_hdrlen + saved_syn->network_hdrlen +
+		saved_syn->tcp_hdrlen;
+}
+
 static inline u16 tcp_mss_clamp(const struct tcp_sock *tp, u16 mss)
 {
 	/* We use READ_ONCE() here because socket might not be locked.
@@ -479,4 +499,6 @@ static inline u16 tcp_mss_clamp(const struct tcp_sock *tp, u16 mss)
 int tcp_skb_shift(struct sk_buff *to, struct sk_buff *from, int pcount,
 		  int shiftlen);
 
+int tcp_sock_set_keepidle_locked(struct sock *sk, int val);
+int tcp_sock_set_keepidle(struct sock *sk, int val);
 #endif	/* _LINUX_TCP_H */

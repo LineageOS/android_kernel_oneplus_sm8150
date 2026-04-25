@@ -1992,9 +1992,9 @@ static void *__vmalloc_node(unsigned long size, unsigned long align,
 				gfp_mask, prot, 0, node, caller);
 }
 
-void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot)
+void *__vmalloc(unsigned long size, gfp_t gfp_mask)
 {
-	return __vmalloc_node(size, 1, gfp_mask, prot, NUMA_NO_NODE,
+	return __vmalloc_node(size, 1, gfp_mask, PAGE_KERNEL, NUMA_NO_NODE,
 				__builtin_return_address(0));
 }
 EXPORT_SYMBOL(__vmalloc);
@@ -2112,8 +2112,28 @@ EXPORT_SYMBOL(vzalloc_node);
 #endif
 
 /**
- *	vmalloc_exec  -  allocate virtually contiguous, executable memory
- *	@size:		allocation size
+ * vmalloc_user_node_flags - allocate memory for userspace on a specific node
+ * @size: allocation size
+ * @node: numa node
+ * @flags: flags for the page level allocator
+ *
+ * The resulting memory area is zeroed so it can be mapped to userspace
+ * without leaking data.
+ *
+ * Return: pointer to the allocated memory or %NULL on error
+ */
+void *vmalloc_user_node_flags(unsigned long size, int node, gfp_t flags)
+{
+	return __vmalloc_node_range(size, SHMLBA,  VMALLOC_START, VMALLOC_END,
+				    flags | __GFP_ZERO, PAGE_KERNEL,
+				    VM_USERMAP, node,
+				    __builtin_return_address(0));
+}
+EXPORT_SYMBOL(vmalloc_user_node_flags);
+
+/**
+ * vmalloc_exec - allocate virtually contiguous, executable memory
+ * @size:	  allocation size
  *
  *	Kernel-internal function to allocate enough pages to cover @size
  *	the page level allocator and map them into contiguous and
