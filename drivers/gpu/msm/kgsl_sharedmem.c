@@ -370,32 +370,31 @@ static DEVICE_ATTR(full_cache_threshold, 0644,
 		kgsl_drv_full_cache_threshold_show,
 		kgsl_drv_full_cache_threshold_store);
 
-static const struct device_attribute *drv_attr_list[] = {
-	&dev_attr_vmalloc,
-	&dev_attr_vmalloc_max,
-	&dev_attr_page_alloc,
-	&dev_attr_page_alloc_max,
-	&dev_attr_coherent,
-	&dev_attr_coherent_max,
-	&dev_attr_secure,
-	&dev_attr_secure_max,
-	&dev_attr_mapped,
-	&dev_attr_mapped_max,
-	&dev_attr_full_cache_threshold,
-	NULL
+static const struct attribute *drv_attr_list[] = {
+	&dev_attr_vmalloc.attr,
+	&dev_attr_vmalloc_max.attr,
+	&dev_attr_page_alloc.attr,
+	&dev_attr_page_alloc_max.attr,
+	&dev_attr_coherent.attr,
+	&dev_attr_coherent_max.attr,
+	&dev_attr_secure.attr,
+	&dev_attr_secure_max.attr,
+	&dev_attr_mapped.attr,
+	&dev_attr_mapped_max.attr,
+	&dev_attr_full_cache_threshold.attr,
+	NULL,
 };
 
 void
 kgsl_sharedmem_uninit_sysfs(void)
 {
-	kgsl_remove_device_sysfs_files(&kgsl_driver.virtdev, drv_attr_list);
+	sysfs_remove_files(&kgsl_driver.virtdev.kobj, drv_attr_list);
 }
 
 int
 kgsl_sharedmem_init_sysfs(void)
 {
-	return kgsl_create_device_sysfs_files(&kgsl_driver.virtdev,
-		drv_attr_list);
+	return sysfs_create_files(&kgsl_driver.virtdev.kobj, drv_attr_list);
 }
 
 static int kgsl_cma_alloc_secure(struct kgsl_device *device,
@@ -841,7 +840,6 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 		memdesc->priv |= KGSL_MEMDESC_SECURE;
 
 	memdesc->flags = flags;
-	memdesc->pad_to = mmu->va_padding;
 	memdesc->dev = device->dev->parent;
 
 	align = max_t(unsigned int,

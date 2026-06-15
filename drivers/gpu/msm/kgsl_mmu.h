@@ -141,8 +141,6 @@ struct kgsl_mmu_pt_ops {
 #define KGSL_MMU_NEED_GUARD_PAGE BIT(9)
 /* The device supports IO coherency */
 #define KGSL_MMU_IO_COHERENT BIT(10)
-/* The device requires VA mappings padded up to a given size */
-#define KGSL_MMU_PAD_VA BIT(11)
 
 /**
  * struct kgsl_mmu - Master definition for KGSL MMU devices
@@ -155,7 +153,6 @@ struct kgsl_mmu_pt_ops {
  * @secured: True if the MMU needs to be secured
  * @feature: Static list of MMU features
  * @secure_aligned_mask: Mask that secure buffers need to be aligned to
- * @va_padding: Size to pad VA mappings to
  * @svm_base32: MMU 32bit VA start address
  * @priv: Union of sub-device specific members
  */
@@ -169,7 +166,6 @@ struct kgsl_mmu {
 	bool secured;
 	unsigned long features;
 	unsigned int secure_align_mask;
-	uint64_t va_padding;
 	unsigned int svm_base32;
 	unsigned int secure_base;
 	unsigned int secure_size;
