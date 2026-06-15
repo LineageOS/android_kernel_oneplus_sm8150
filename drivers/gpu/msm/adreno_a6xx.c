@@ -785,7 +785,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
-	unsigned int bit, mal, mode, glbl_inv, channel;
+	unsigned int bit, mal, mode, channel;
 	unsigned int amsbc = 0;
 	static bool patch_reglist;
 
@@ -919,9 +919,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	mal = (mal == 64) ? 1 : 0;
 
-	/* (1 << 29)globalInvFlushFilterDis bit needs to be set for A630 V1 */
-	glbl_inv = (adreno_is_a630v1(adreno_dev)) ? 1 : 0;
-
 	kgsl_regwrite(device, A6XX_RB_NC_MODE_CNTL, (amsbc << 4) | (mal << 3) |
 							(bit << 1) | mode);
 	kgsl_regwrite(device, A6XX_TPL1_NC_MODE_CNTL, (mal << 3) |
@@ -929,8 +926,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_SP_NC_MODE_CNTL, (mal << 3) | (bit << 1) |
 								mode);
 
-	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (glbl_inv << 29) |
-						(mal << 23) | (bit << 21));
+	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (mal << 23) | (bit << 21));
 
 	if (adreno_is_a610(adreno_dev))
 		/*

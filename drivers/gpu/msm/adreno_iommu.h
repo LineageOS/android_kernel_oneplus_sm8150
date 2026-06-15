@@ -20,17 +20,14 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 			struct adreno_context *drawctxt,
 			unsigned long flags);
 
-int adreno_iommu_init(struct adreno_device *adreno_dev);
+void adreno_iommu_init(struct adreno_device *adreno_dev);
 
 unsigned int adreno_iommu_set_pt_generate_cmds(
 				struct adreno_ringbuffer *rb,
 				unsigned int *cmds,
 				struct kgsl_pagetable *pt);
 #else
-static inline int adreno_iommu_init(struct adreno_device *adreno_dev)
-{
-	return 0;
-}
+static inline void adreno_iommu_init(struct adreno_device *adreno_dev) { }
 
 static inline int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt,

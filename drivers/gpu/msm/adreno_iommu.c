@@ -17,9 +17,6 @@
 #include "a6xx_reg.h"
 #include "adreno_pm4types.h"
 
-#define A5XX_PFP_PER_PROCESS_UCODE_VER 0x5FF064
-#define A5XX_PM4_PER_PROCESS_UCODE_VER 0x5FF052
-
 /*
  * _wait_reg() - make CP poll on a register
  * @cmds:	Pointer to memory where commands are to be added
@@ -865,13 +862,13 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
  * adreno_iommu_init() - Adreno iommu init
  * @adreno_dev: Adreno device
  */
-int adreno_iommu_init(struct adreno_device *adreno_dev)
+void adreno_iommu_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 
 	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE)
-		return 0;
+		return;
 
 	/*
 	 * A nop is required in an indirect buffer when switching
@@ -886,27 +883,9 @@ int adreno_iommu_init(struct adreno_device *adreno_dev)
 	if (adreno_is_a420(adreno_dev))
 		device->mmu.features |= KGSL_MMU_FLUSH_TLB_ON_MAP;
 
-	/*
-	 * A5XX: per process PT is supported starting PFP 0x5FF064 me 0x5FF052
-	 * versions
-	 */
-	if (adreno_is_a5xx(adreno_dev) &&
-		!MMU_FEATURE(&device->mmu, KGSL_MMU_GLOBAL_PAGETABLE)) {
-		if ((adreno_compare_pfp_version(adreno_dev,
-				A5XX_PFP_PER_PROCESS_UCODE_VER) < 0) ||
-		    (adreno_compare_pm4_version(adreno_dev,
-				A5XX_PM4_PER_PROCESS_UCODE_VER) < 0)) {
-			KGSL_DRV_ERR(device,
-				"Invalid ucode for per process pagetables\n");
-			return -ENODEV;
-		}
-	}
-
 	/* Enable guard page MMU feature for A3xx and A4xx targets only */
 	if (adreno_is_a3xx(adreno_dev) || adreno_is_a4xx(adreno_dev))
 		device->mmu.features |= KGSL_MMU_NEED_GUARD_PAGE;
-
-	return 0;
 }
 
 /**
