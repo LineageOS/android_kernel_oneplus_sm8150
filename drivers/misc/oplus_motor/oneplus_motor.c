@@ -108,79 +108,94 @@ static void  oneplus_motor_irq_monitor(struct oneplus_motor_chip* chip);
 static irqreturn_t oneplus_free_fall_detect_handler(int irq, void*  dev_id);
 
 /************************node operation by MotorManagerService or user************************/
-//for normal use
-static ssize_t  motor_direction_store(struct device* pdev, struct device_attribute* attr,
-		                              const char* buf, size_t count);
-static ssize_t  motor_direction_show(struct device* dev, struct device_attribute* attr, char* buf);
-static ssize_t  motor_enable_store(struct device* pdev, struct device_attribute* attr, 
-								   const char* buff, size_t count);
-static ssize_t  step_count_store(struct device *pdev, struct device_attribute *attr,
-			                    const char *buff, size_t count);
-static ssize_t  step_count_show(struct device *dev,struct device_attribute *attr, char *buf);
-static ssize_t  save_hall_data_store(struct device *pdev, struct device_attribute *attr,
-		                            const char *buff, size_t count);
-static ssize_t  save_hall_data_show(struct device *dev,struct device_attribute *attr, char *buf);
-static ssize_t  hall_data_show(struct device* dev,struct device_attribute* attr, char* buf);
-static ssize_t  motor_move_state_show(struct device* dev, struct device_attribute* attr, char* buf);
 
-static ssize_t  hall_calibration_show(struct device* dev, struct device_attribute* attr, char* buf);
-static ssize_t  hall_calibration_store(struct device* pdev, struct device_attribute* attr,
+#ifdef CONFIG_MOTOR_CLASS_INTERFACE
+#define motor_dev class
+#define motor_attribute class_attribute
+#define MOTOR_ATTR(_name, _mode, _show, _store) \
+    struct class_attribute motor_attr_##_name = __ATTR(_name, _mode, _show, _store)
+#define __MOTOR_ATTR(_name) &motor_attr_##_name.attr
+#else
+#define motor_dev device
+#define motor_attribute device_attribute
+#define MOTOR_ATTR(_name, _mode, _show, _store) \
+    struct motor_attribute motor_attr_##_name = __ATTR(_name, _mode, _show, _store)
+#define __MOTOR_ATTR(_name) &motor_attr_##_name.attr
+#endif
+
+//for normal use
+static ssize_t  motor_direction_store(struct motor_dev * pdev, struct motor_attribute* attr,
+		                              const char* buf, size_t count);
+static ssize_t  motor_direction_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+static ssize_t  motor_enable_store(struct motor_dev * pdev, struct motor_attribute* attr, 
+								   const char* buff, size_t count);
+static ssize_t  step_count_store(struct motor_dev *pdev, struct motor_attribute *attr,
+			                    const char *buff, size_t count);
+static ssize_t  step_count_show(struct motor_dev *dev,struct motor_attribute *attr, char *buf);
+static ssize_t  save_hall_data_store(struct motor_dev *pdev, struct motor_attribute *attr,
+		                            const char *buff, size_t count);
+static ssize_t  save_hall_data_show(struct motor_dev *dev,struct motor_attribute *attr, char *buf);
+static ssize_t  hall_data_show(struct motor_dev * dev,struct motor_attribute* attr, char* buf);
+static ssize_t  motor_move_state_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+
+static ssize_t  hall_calibration_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+static ssize_t  hall_calibration_store(struct motor_dev * pdev, struct motor_attribute* attr,
 					                   const char* buff, size_t count);
-static ssize_t  stall_show(struct device* dev, struct device_attribute* attr, char* buf);	
-static ssize_t  stall_steps_show(struct device* dev, struct device_attribute* attr, char* buf);	
-static ssize_t  motor_test_show(struct device* dev, struct device_attribute* attr, char* buf);
-static ssize_t  motor_test_store(struct device* pdev, struct device_attribute* attr, 
+static ssize_t  stall_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);	
+static ssize_t  stall_steps_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);	
+static ssize_t  motor_test_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+static ssize_t  motor_test_store(struct motor_dev * pdev, struct motor_attribute* attr, 
  								 const char* buff, size_t count);
-static ssize_t  hall_irq_count_show(struct device* dev, struct device_attribute* attr, char* buf);
-static ssize_t  motor_mode_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t  hall_irq_count_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+static ssize_t  motor_mode_store(struct motor_dev * pdev, struct motor_attribute* attr,
 		                         const char* buff, size_t count);
-static ssize_t  motor_mode_show(struct device* dev, struct device_attribute* attr, char* buf);
-static ssize_t  motor_manual2auto_switch_show(struct device* dev, struct device_attribute* attr, char* buf);
-static ssize_t  motor_manual2auto_switch_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t  motor_mode_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+static ssize_t  motor_manual2auto_switch_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+static ssize_t  motor_manual2auto_switch_store(struct motor_dev * pdev, struct motor_attribute* attr,
 				 	                           const char* buff, size_t count);
-static ssize_t  motor_sw_switch_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t  motor_sw_switch_store(struct motor_dev * pdev, struct motor_attribute* attr,
 				 					  const char* buff, size_t count);
-static ssize_t  motor_sw_switch_show(struct device* dev, struct device_attribute* attr, char* buf);
+static ssize_t  motor_sw_switch_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
 //for special test
-static ssize_t  motor_force_move_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t  motor_force_move_store(struct motor_dev * pdev, struct motor_attribute* attr,
 				                       const char* buff, size_t count);
-///static ssize_t  motor_stop_time_store(struct device* pdev, struct device_attribute* attr,
+///static ssize_t  motor_stop_time_store(struct motor_dev * pdev, struct motor_attribute* attr,
 //		                              const char* buff, size_t count);
-//static ssize_t  motor_stop_time_show(struct device* dev, struct device_attribute* attr, char* buf);
-//static ssize_t  motor_initial_time_store(struct device* pdev, struct device_attribute* attr,
+//static ssize_t  motor_stop_time_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+//static ssize_t  motor_initial_time_store(struct motor_dev * pdev, struct motor_attribute* attr,
 //		                                 const char* buff, size_t count);
-//static ssize_t  motor_initial_time_show(struct device* dev, struct device_attribute* attr, char* buf);
-//static ssize_t  motor_initial_speed_store(struct device* pdev, struct device_attribute* attr,
+//static ssize_t  motor_initial_time_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+//static ssize_t  motor_initial_speed_store(struct motor_dev * pdev, struct motor_attribute* attr,
 //		                                       const char* buff, size_t count);
-//static ssize_t  motor_initial_speed_show(struct device* dev, struct device_attribute* attr, char* buf);
-//static ssize_t  motor_high_speed_store(struct device* pdev, struct device_attribute* attr,
+//static ssize_t  motor_initial_speed_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+//static ssize_t  motor_high_speed_store(struct motor_dev * pdev, struct motor_attribute* attr,
 //		                               const char* buff, size_t count);
-//static ssize_t  motor_high_speed_show(struct device* dev, struct device_attribute* attr, char* buf);
-//static ssize_t  motor_high_speed_time_store(struct device* pdev, struct device_attribute* attr,
+//static ssize_t  motor_high_speed_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+//static ssize_t  motor_high_speed_time_store(struct motor_dev * pdev, struct motor_attribute* attr,
 //		                                    const char* buff, size_t count);
-//static ssize_t  motor_high_speed_time_show(struct device* dev,struct device_attribute* attr, char* buf);
-static ssize_t  motor_slow_down_speed_store(struct device* pdev, struct device_attribute* attr,
+//static ssize_t  motor_high_speed_time_show(struct motor_dev * dev,struct motor_attribute* attr, char* buf);
+static ssize_t  motor_slow_down_speed_store(struct motor_dev * pdev, struct motor_attribute* attr,
 		                                    const char* buff, size_t count);
-static ssize_t  motor_slow_down_speed_show(struct device* dev, struct device_attribute* attr, char* buf);
+static ssize_t  motor_slow_down_speed_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
 //not use 
-// static ssize_t  motor_speed_change_switch_store(struct device* pdev, struct device_attribute* attr,
+// static ssize_t  motor_speed_change_switch_store(struct motor_dev * pdev, struct motor_attribute* attr,
 // 				 							    const char* buff, size_t count);
-// static ssize_t  motor_speed_change_switch_show(struct device* dev, struct device_attribute* attr, char* buf);
-static ssize_t  hall_detect_switch_store(struct device* pdev, struct device_attribute* attr,
+// static ssize_t  motor_speed_change_switch_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+static ssize_t  hall_detect_switch_store(struct motor_dev * pdev, struct motor_attribute* attr,
 				 						 const char* buff, size_t count);
-static ssize_t  hall_detect_switch_show(struct device* dev, struct device_attribute* attr, char* buf);
-static ssize_t  motor_all_config_show(struct device* dev, struct device_attribute* attr, char* buf);
-static ssize_t  motor_position_show(struct device* dev, struct device_attribute* attr, char* buf);
-static ssize_t  hall_all_reg_show(struct device* dev, struct device_attribute* attr, char* buf);
+static ssize_t  hall_detect_switch_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+static ssize_t  motor_all_config_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+static ssize_t  motor_position_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+static ssize_t  hall_all_reg_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
  //save for compatibility
-static ssize_t  motor_change_speed_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t  motor_change_speed_store(struct motor_dev * pdev, struct motor_attribute* attr,
 				 	                     const char* buff, size_t count);
-static ssize_t  motor_speed_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t  motor_speed_store(struct motor_dev * pdev, struct motor_attribute* attr,
 		                          const char* buff, size_t count);
-static ssize_t  motor_speed_show(struct device* dev, struct device_attribute* attr, char* buf);
-static ssize_t  hall_sensitive_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t  motor_speed_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
+static ssize_t  hall_sensitive_store(struct motor_dev * pdev, struct motor_attribute* attr,
 									 const char* buff, size_t count);
-static ssize_t  hall_sensitive_show(struct device* dev, struct device_attribute* attr, char* buf);
+static ssize_t  hall_sensitive_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf);
 
 
 /************************init function************************/	
@@ -1911,7 +1926,7 @@ static irqreturn_t oneplus_free_fall_detect_handler(int irq, void* dev_id)
 /*********************************************************************
             node operation by MotorManagerService and user
 **********************************************************************/
-static ssize_t motor_direction_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t motor_direction_store(struct motor_dev * pdev, struct motor_attribute* attr,
 			   const char* buf, size_t count)
 {
 	unsigned long direction = 0;
@@ -1936,8 +1951,8 @@ static ssize_t motor_direction_store(struct device* pdev, struct device_attribut
 	return count;;
 }
 
-static ssize_t motor_direction_show(struct device* dev,
-				  struct device_attribute* attr, char* buf)
+static ssize_t motor_direction_show(struct motor_dev * dev,
+				  struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -1947,7 +1962,7 @@ static ssize_t motor_direction_show(struct device* dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->motor_direction);
 }
 
-static ssize_t motor_enable_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t motor_enable_store(struct motor_dev * pdev, struct motor_attribute* attr,
 					const char* buff, size_t count)
 {
 	unsigned long enable = 0;
@@ -1966,7 +1981,7 @@ static ssize_t motor_enable_store(struct device* pdev, struct device_attribute* 
 	return count;
 }
 
-static ssize_t step_count_store(struct device *pdev, struct device_attribute *attr,
+static ssize_t step_count_store(struct motor_dev *pdev, struct motor_attribute *attr,
 		                        const char *buff, size_t count)
 {
 	unsigned long step_count = 0;
@@ -1990,7 +2005,7 @@ static ssize_t step_count_store(struct device *pdev, struct device_attribute *at
 	return count;
 }
 
-static ssize_t step_count_show(struct device *dev,struct device_attribute *attr, char *buf)
+static ssize_t step_count_show(struct motor_dev *dev,struct motor_attribute *attr, char *buf)
 {
 	int  step_count = 0;
 
@@ -2004,7 +2019,7 @@ static ssize_t step_count_show(struct device *dev,struct device_attribute *attr,
 	return sprintf(buf, "%d\n",step_count);
 }
 
-static ssize_t save_hall_data_store(struct device *pdev, struct device_attribute *attr,
+static ssize_t save_hall_data_store(struct motor_dev *pdev, struct motor_attribute *attr,
 		                            const char *buff, size_t count)
 {
 	unsigned long save_hall_data_to_file = 0;
@@ -2028,7 +2043,7 @@ static ssize_t save_hall_data_store(struct device *pdev, struct device_attribute
 	return count;
 }
 
-static ssize_t save_hall_data_show(struct device *dev,struct device_attribute *attr, char *buf)
+static ssize_t save_hall_data_show(struct motor_dev *dev,struct motor_attribute *attr, char *buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2038,7 +2053,7 @@ static ssize_t save_hall_data_show(struct device *dev,struct device_attribute *a
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->save_hall_data_to_file);
 }
 
-static ssize_t hall_data_show(struct device* dev,struct device_attribute* attr, char* buf)
+static ssize_t hall_data_show(struct motor_dev * dev,struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2053,7 +2068,7 @@ static ssize_t hall_data_show(struct device* dev,struct device_attribute* attr, 
 	return sprintf(buf, "%d,%d\n", g_the_chip->hall_down_data, g_the_chip->hall_up_data);
 }
 
-static ssize_t motor_move_state_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t motor_move_state_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2063,7 +2078,7 @@ static ssize_t motor_move_state_show(struct device* dev, struct device_attribute
 	return sprintf(buf, "%d\n", g_the_chip->move_state);
 }
 
-static ssize_t hall_calibration_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t hall_calibration_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf)
 {
 	int step_count = 0;
 
@@ -2088,7 +2103,7 @@ static ssize_t hall_calibration_show(struct device* dev, struct device_attribute
 						g_the_chip->hall_sensitive);
 }
 
-static ssize_t hall_calibration_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t hall_calibration_store(struct motor_dev * pdev, struct motor_attribute* attr,
 						              const char* buff, size_t count)
 {
 	int data[12] = {0};
@@ -2149,7 +2164,7 @@ static ssize_t hall_calibration_store(struct device* pdev, struct device_attribu
 
 }
 
-static ssize_t stall_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t stall_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2161,7 +2176,7 @@ static ssize_t stall_show(struct device* dev, struct device_attribute* attr, cha
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->is_stall);
 }
 
-static ssize_t stall_steps_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t stall_steps_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2173,7 +2188,7 @@ static ssize_t stall_steps_show(struct device* dev, struct device_attribute* att
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->stall_steps);
 }
 
-static ssize_t stall_mode_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t stall_mode_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2185,7 +2200,7 @@ static ssize_t stall_mode_show(struct device* dev, struct device_attribute* attr
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->stall_mode);
 }
 
-static ssize_t  motor_test_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t  motor_test_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2197,7 +2212,7 @@ static ssize_t  motor_test_show(struct device* dev, struct device_attribute* att
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->is_motor_test);
 }
 
-static ssize_t motor_test_store(struct device* pdev, struct device_attribute* attr, const char* buff, size_t count)
+static ssize_t motor_test_store(struct motor_dev * pdev, struct motor_attribute* attr, const char* buff, size_t count)
 {
 	int test = 0;
 
@@ -2214,7 +2229,7 @@ static ssize_t motor_test_store(struct device* pdev, struct device_attribute* at
 	return count;
 }
 
-static ssize_t hall_irq_count_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t hall_irq_count_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2224,7 +2239,7 @@ static ssize_t hall_irq_count_show(struct device* dev, struct device_attribute* 
 	return sprintf(buf, "%d,%d\n",g_the_chip->hall_down_irq_count, g_the_chip->hall_up_irq_count);
 }
 
-static ssize_t motor_mode_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t motor_mode_store(struct motor_dev * pdev, struct motor_attribute* attr,
 			   const char* buff, size_t count)
 {
 	int mdmode = 0;
@@ -2245,8 +2260,8 @@ static ssize_t motor_mode_store(struct device* pdev, struct device_attribute* at
 	return count;
 }
 
-static ssize_t  motor_mode_show(struct device* dev,
-				  struct device_attribute* attr, char* buf)
+static ssize_t  motor_mode_show(struct motor_dev * dev,
+				  struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2256,7 +2271,7 @@ static ssize_t  motor_mode_show(struct device* dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->motor_work_mode);
 }
 
-static ssize_t motor_manual2auto_switch_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t motor_manual2auto_switch_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf)
 {
 	int manual2auto_switch = 0;
 
@@ -2271,7 +2286,7 @@ static ssize_t motor_manual2auto_switch_show(struct device* dev, struct device_a
 	return sprintf(buf, "%d\n",manual2auto_switch);
 }
 
-static ssize_t motor_manual2auto_switch_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t motor_manual2auto_switch_store(struct motor_dev * pdev, struct motor_attribute* attr,
 						const char* buff, size_t count)
 {
 	int data[1] = {0};
@@ -2301,7 +2316,7 @@ static ssize_t motor_manual2auto_switch_store(struct device* pdev, struct device
 	return count;
 }
 
-static ssize_t motor_sw_switch_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t motor_sw_switch_store(struct motor_dev * pdev, struct motor_attribute* attr,
 						             const char* buff, size_t count)
 {
 	unsigned long sw_switch = 0;
@@ -2318,7 +2333,7 @@ static ssize_t motor_sw_switch_store(struct device* pdev, struct device_attribut
 	return count;
 }
 
-static ssize_t  motor_sw_switch_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t  motor_sw_switch_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2327,7 +2342,7 @@ static ssize_t  motor_sw_switch_show(struct device* dev, struct device_attribute
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->motor_switch);
 }
 
-static ssize_t motor_force_move_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t motor_force_move_store(struct motor_dev * pdev, struct motor_attribute* attr,
 					                  const char* buff, size_t count)
 {
 	unsigned long enable = 0;
@@ -2351,7 +2366,7 @@ static ssize_t motor_force_move_store(struct device* pdev, struct device_attribu
 	return count;
 }
 
-static ssize_t hall_detect_switch_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t hall_detect_switch_store(struct motor_dev * pdev, struct motor_attribute* attr,
 						                const char* buff, size_t count)
 {
 	unsigned long sw_switch = 0;
@@ -2371,8 +2386,8 @@ static ssize_t hall_detect_switch_store(struct device* pdev, struct device_attri
 	return count;
 }
 
-static ssize_t  hall_detect_switch_show(struct device* dev,
-				  struct device_attribute* attr, char* buf)
+static ssize_t  hall_detect_switch_show(struct motor_dev * dev,
+				  struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2382,7 +2397,7 @@ static ssize_t  hall_detect_switch_show(struct device* dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->hall_detect_switch);
 }
 
-static ssize_t  motor_all_config_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t  motor_all_config_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf)
 {
 	int config[6] = {0};
 
@@ -2397,7 +2412,7 @@ static ssize_t  motor_all_config_show(struct device* dev, struct device_attribut
 			                         config[0], config[1], config[2],config[3], config[4], config[5]);
 }
 
-static ssize_t  motor_position_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t  motor_position_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf)
 {
 	int config[6] = {0};
 
@@ -2409,7 +2424,7 @@ static ssize_t  motor_position_show(struct device* dev, struct device_attribute*
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->position);
 }
 
-static ssize_t hall_all_reg_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t hall_all_reg_show(struct motor_dev * dev, struct motor_attribute* attr, char* buf)
 {
 	u8 _buf[1024] = {0};
 
@@ -2418,7 +2433,7 @@ static ssize_t hall_all_reg_show(struct device* dev, struct device_attribute* at
 	return sprintf(buf, "%s\n", _buf);
 }
 
-static ssize_t motor_change_speed_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t motor_change_speed_store(struct motor_dev * pdev, struct motor_attribute* attr,
 										const char* buff, size_t count)
 {
 	unsigned long speed = 0;
@@ -2435,7 +2450,7 @@ static ssize_t motor_change_speed_store(struct device* pdev, struct device_attri
 	return count;
 }
 
-static ssize_t motor_speed_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t motor_speed_store(struct motor_dev * pdev, struct motor_attribute* attr,
 			                     const char* buff, size_t count)
 {
 
@@ -2464,7 +2479,7 @@ static ssize_t motor_speed_store(struct device* pdev, struct device_attribute* a
 	return count;
 }
 
-static ssize_t motor_speed_show(struct device* dev,struct device_attribute* attr, char* buf)
+static ssize_t motor_speed_show(struct motor_dev * dev,struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2475,7 +2490,7 @@ static ssize_t motor_speed_show(struct device* dev,struct device_attribute* attr
 }
 
 //slow down speed
-static ssize_t motor_slow_down_speed_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t motor_slow_down_speed_store(struct motor_dev * pdev, struct motor_attribute* attr,
 			                               const char* buff, size_t count)
 {
 
@@ -2500,7 +2515,7 @@ static ssize_t motor_slow_down_speed_store(struct device* pdev, struct device_at
 	return count;
 }
 
-static ssize_t motor_slow_down_speed_show(struct device* dev,struct device_attribute* attr, char* buf)
+static ssize_t motor_slow_down_speed_show(struct motor_dev * dev,struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2511,7 +2526,7 @@ static ssize_t motor_slow_down_speed_show(struct device* dev,struct device_attri
 }
 
 //deltad range
-static ssize_t deltad_range_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t deltad_range_store(struct motor_dev * pdev, struct motor_attribute* attr,
 			                               const char* buff, size_t count)
 {
 
@@ -2532,7 +2547,7 @@ static ssize_t deltad_range_store(struct device* pdev, struct device_attribute* 
 	return count;
 }
 
-static ssize_t deltad_range_show(struct device* dev,struct device_attribute* attr, char* buf)
+static ssize_t deltad_range_show(struct motor_dev * dev,struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2542,7 +2557,7 @@ static ssize_t deltad_range_show(struct device* dev,struct device_attribute* att
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->deltad_range);
 }
 
-static ssize_t begin_stop_detect_percent_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t begin_stop_detect_percent_store(struct motor_dev * pdev, struct motor_attribute* attr,
 			                               const char* buff, size_t count)
 {
 
@@ -2565,7 +2580,7 @@ static ssize_t begin_stop_detect_percent_store(struct device* pdev, struct devic
 	return count;
 }
 
-static ssize_t begin_stop_detect_percent_show(struct device* dev,struct device_attribute* attr, char* buf)
+static ssize_t begin_stop_detect_percent_show(struct motor_dev * dev,struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2575,7 +2590,7 @@ static ssize_t begin_stop_detect_percent_show(struct device* dev,struct device_a
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->begin_stop_detect_percent);
 }
 
-static ssize_t factory_mode_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t factory_mode_store(struct motor_dev * pdev, struct motor_attribute* attr,
 			                               const char* buff, size_t count)
 {
 
@@ -2597,7 +2612,7 @@ static ssize_t factory_mode_store(struct device* pdev, struct device_attribute* 
 	return count;
 }
 
-static ssize_t factory_mode_show(struct device* dev,struct device_attribute* attr, char* buf)
+static ssize_t factory_mode_show(struct motor_dev * dev,struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2607,7 +2622,7 @@ static ssize_t factory_mode_show(struct device* dev,struct device_attribute* att
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->is_factory_mode);
 }
 
-static ssize_t free_fall_irq_times_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t free_fall_irq_times_store(struct motor_dev * pdev, struct motor_attribute* attr,
 			                               const char* buff, size_t count)
 {
 
@@ -2629,7 +2644,7 @@ static ssize_t free_fall_irq_times_store(struct device* pdev, struct device_attr
 	return count;
 }
 
-static ssize_t free_fall_irq_times_show(struct device* dev,struct device_attribute* attr, char* buf)
+static ssize_t free_fall_irq_times_show(struct motor_dev * dev,struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2639,7 +2654,7 @@ static ssize_t free_fall_irq_times_show(struct device* dev,struct device_attribu
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->free_fall_irq_times);
 }
 
-static ssize_t infrared_shut_down_state_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t infrared_shut_down_state_store(struct motor_dev * pdev, struct motor_attribute* attr,
 			                               const char* buff, size_t count)
 {
 
@@ -2661,7 +2676,7 @@ static ssize_t infrared_shut_down_state_store(struct device* pdev, struct device
 	return count;
 }
 
-static ssize_t infrared_shut_down_state_show(struct device* dev,struct device_attribute* attr, char* buf)
+static ssize_t infrared_shut_down_state_show(struct motor_dev * dev,struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2671,7 +2686,7 @@ static ssize_t infrared_shut_down_state_show(struct device* dev,struct device_at
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->infrared_shut_down_state);
 }
 
-static ssize_t hall_sensitive_store(struct device* pdev, struct device_attribute* attr,
+static ssize_t hall_sensitive_store(struct motor_dev * pdev, struct motor_attribute* attr,
 			                               const char* buff, size_t count)
 {
 
@@ -2698,7 +2713,7 @@ static ssize_t hall_sensitive_store(struct device* pdev, struct device_attribute
 	return count;
 }
 
-static ssize_t hall_sensitive_show(struct device* dev,struct device_attribute* attr, char* buf)
+static ssize_t hall_sensitive_show(struct motor_dev * dev,struct motor_attribute* attr, char* buf)
 {
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
@@ -2708,79 +2723,79 @@ static ssize_t hall_sensitive_show(struct device* dev,struct device_attribute* a
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->hall_sensitive);
 }
 
-static DEVICE_ATTR(direction, S_IRUGO | S_IWUSR, motor_direction_show, motor_direction_store);
-static DEVICE_ATTR(speed, S_IRUGO | S_IWUSR, motor_speed_show, motor_speed_store);
-static DEVICE_ATTR(mode, S_IRUGO | S_IWUSR, motor_mode_show, motor_mode_store);
-static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, NULL, motor_enable_store);
-static DEVICE_ATTR(step_count,   S_IRUGO | S_IWUSR, step_count_show, step_count_store);
-static DEVICE_ATTR(save_hall_data, S_IRUGO | S_IWUSR, save_hall_data_show, save_hall_data_store);
-static DEVICE_ATTR(change_speed,   S_IRUGO | S_IWUSR,NULL, motor_change_speed_store);
-static DEVICE_ATTR(move_state,    S_IRUGO | S_IWUSR, motor_move_state_show,NULL);
-static DEVICE_ATTR(config,   S_IRUGO | S_IWUSR, motor_all_config_show,NULL);
-static DEVICE_ATTR(sw_switch,    S_IRUGO | S_IWUSR, motor_sw_switch_show,motor_sw_switch_store);
-//static DEVICE_ATTR(speed_change_switch,    S_IRUGO | S_IWUSR, motor_speed_change_switch_show,motor_speed_change_switch_store);
-static DEVICE_ATTR(position,   S_IRUGO | S_IWUSR, motor_position_show,NULL);
-static DEVICE_ATTR(manual2auto_switch,   S_IRUGO | S_IWUSR, motor_manual2auto_switch_show,motor_manual2auto_switch_store);
-static DEVICE_ATTR(motor_test,   S_IRUGO | S_IWUSR, motor_test_show,motor_test_store);
-static DEVICE_ATTR(hall_data,   S_IRUGO | S_IWUSR,hall_data_show,NULL);
-static DEVICE_ATTR(hall_reg,   S_IRUGO | S_IWUSR,hall_all_reg_show,NULL);
-static DEVICE_ATTR(hall_irq_count,   S_IRUGO | S_IWUSR,hall_irq_count_show,NULL);
-static DEVICE_ATTR(hall_calibration,   S_IRUGO | S_IWUSR,hall_calibration_show,hall_calibration_store);
-static DEVICE_ATTR(stall,   S_IRUGO | S_IWUSR, stall_show, NULL);
-static DEVICE_ATTR(stall_steps,   S_IRUGO | S_IWUSR, stall_steps_show, NULL);
-static DEVICE_ATTR(stall_mode, S_IRUGO | S_IWUSR, stall_mode_show, NULL);
-static DEVICE_ATTR(hall_detect_switch,   S_IRUGO | S_IWUSR,hall_detect_switch_show,hall_detect_switch_store);
-static DEVICE_ATTR(force_move, 	S_IRUGO | S_IWUSR, NULL, motor_force_move_store);
-//static DEVICE_ATTR(stop_time, S_IRUGO | S_IWUSR, motor_stop_time_show, motor_stop_time_store);
-//static DEVICE_ATTR(initial_time, S_IRUGO | S_IWUSR, motor_initial_time_show, motor_initial_time_store);
-//static DEVICE_ATTR(initial_speed, S_IRUGO | S_IWUSR, motor_initial_speed_show, motor_initial_speed_time_store);
-//static DEVICE_ATTR(high_speed, S_IRUGO | S_IWUSR, motor_high_speed_show, motor_high_speed_store);
-//static DEVICE_ATTR(high_speed_time, S_IRUGO | S_IWUSR, motor_high_speed_time_show, motor_high_speed_time_store);
-static DEVICE_ATTR(slow_down_speed, S_IRUGO | S_IWUSR, motor_slow_down_speed_show, motor_slow_down_speed_store);
-static DEVICE_ATTR(deltad_range, S_IRUGO | S_IWUSR, deltad_range_show, deltad_range_store);
-static DEVICE_ATTR(begin_stop_detect_percent, S_IRUGO | S_IWUSR, begin_stop_detect_percent_show, begin_stop_detect_percent_store);
-static DEVICE_ATTR(factory_mode, S_IRUGO | S_IWUSR, factory_mode_show, factory_mode_store);
-static DEVICE_ATTR(free_fall_irq_times, S_IRUGO | S_IWUSR, free_fall_irq_times_show, free_fall_irq_times_store);
-static DEVICE_ATTR(infrared_shut_down_state, S_IRUGO | S_IWUSR, infrared_shut_down_state_show, infrared_shut_down_state_store);
-static DEVICE_ATTR(hall_sensitive, S_IRUGO | S_IWUSR, hall_sensitive_show, hall_sensitive_store);
+static MOTOR_ATTR(direction, S_IRUGO | S_IWUSR, motor_direction_show, motor_direction_store);
+static MOTOR_ATTR(speed, S_IRUGO | S_IWUSR, motor_speed_show, motor_speed_store);
+static MOTOR_ATTR(mode, S_IRUGO | S_IWUSR, motor_mode_show, motor_mode_store);
+static MOTOR_ATTR(enable, S_IRUGO | S_IWUSR, NULL, motor_enable_store);
+static MOTOR_ATTR(step_count,   S_IRUGO | S_IWUSR, step_count_show, step_count_store);
+static MOTOR_ATTR(save_hall_data, S_IRUGO | S_IWUSR, save_hall_data_show, save_hall_data_store);
+static MOTOR_ATTR(change_speed,   S_IRUGO | S_IWUSR,NULL, motor_change_speed_store);
+static MOTOR_ATTR(move_state,    S_IRUGO | S_IWUSR, motor_move_state_show,NULL);
+static MOTOR_ATTR(config,   S_IRUGO | S_IWUSR, motor_all_config_show,NULL);
+static MOTOR_ATTR(sw_switch,    S_IRUGO | S_IWUSR, motor_sw_switch_show,motor_sw_switch_store);
+//static MOTOR_ATTR(speed_change_switch,    S_IRUGO | S_IWUSR, motor_speed_change_switch_show,motor_speed_change_switch_store);
+static MOTOR_ATTR(position,   S_IRUGO | S_IWUSR, motor_position_show,NULL);
+static MOTOR_ATTR(manual2auto_switch,   S_IRUGO | S_IWUSR, motor_manual2auto_switch_show,motor_manual2auto_switch_store);
+static MOTOR_ATTR(motor_test,   S_IRUGO | S_IWUSR, motor_test_show,motor_test_store);
+static MOTOR_ATTR(hall_data,   S_IRUGO | S_IWUSR,hall_data_show,NULL);
+static MOTOR_ATTR(hall_reg,   S_IRUGO | S_IWUSR,hall_all_reg_show,NULL);
+static MOTOR_ATTR(hall_irq_count,   S_IRUGO | S_IWUSR,hall_irq_count_show,NULL);
+static MOTOR_ATTR(hall_calibration,   S_IRUGO | S_IWUSR,hall_calibration_show,hall_calibration_store);
+static MOTOR_ATTR(stall,   S_IRUGO | S_IWUSR, stall_show, NULL);
+static MOTOR_ATTR(stall_steps,   S_IRUGO | S_IWUSR, stall_steps_show, NULL);
+static MOTOR_ATTR(stall_mode, S_IRUGO | S_IWUSR, stall_mode_show, NULL);
+static MOTOR_ATTR(hall_detect_switch,   S_IRUGO | S_IWUSR,hall_detect_switch_show,hall_detect_switch_store);
+static MOTOR_ATTR(force_move, 	S_IRUGO | S_IWUSR, NULL, motor_force_move_store);
+//static MOTOR_ATTR(stop_time, S_IRUGO | S_IWUSR, motor_stop_time_show, motor_stop_time_store);
+//static MOTOR_ATTR(initial_time, S_IRUGO | S_IWUSR, motor_initial_time_show, motor_initial_time_store);
+//static MOTOR_ATTR(initial_speed, S_IRUGO | S_IWUSR, motor_initial_speed_show, motor_initial_speed_time_store);
+//static MOTOR_ATTR(high_speed, S_IRUGO | S_IWUSR, motor_high_speed_show, motor_high_speed_store);
+//static MOTOR_ATTR(high_speed_time, S_IRUGO | S_IWUSR, motor_high_speed_time_show, motor_high_speed_time_store);
+static MOTOR_ATTR(slow_down_speed, S_IRUGO | S_IWUSR, motor_slow_down_speed_show, motor_slow_down_speed_store);
+static MOTOR_ATTR(deltad_range, S_IRUGO | S_IWUSR, deltad_range_show, deltad_range_store);
+static MOTOR_ATTR(begin_stop_detect_percent, S_IRUGO | S_IWUSR, begin_stop_detect_percent_show, begin_stop_detect_percent_store);
+static MOTOR_ATTR(factory_mode, S_IRUGO | S_IWUSR, factory_mode_show, factory_mode_store);
+static MOTOR_ATTR(free_fall_irq_times, S_IRUGO | S_IWUSR, free_fall_irq_times_show, free_fall_irq_times_store);
+static MOTOR_ATTR(infrared_shut_down_state, S_IRUGO | S_IWUSR, infrared_shut_down_state_show, infrared_shut_down_state_store);
+static MOTOR_ATTR(hall_sensitive, S_IRUGO | S_IWUSR, hall_sensitive_show, hall_sensitive_store);
 
 
 static struct attribute* motor_class_attrs[] = {
-	&dev_attr_direction.attr,
-	&dev_attr_speed.attr,
-	&dev_attr_mode.attr,
-	&dev_attr_enable.attr,
-	&dev_attr_step_count.attr,
-	&dev_attr_save_hall_data.attr,
-	&dev_attr_change_speed.attr,
-	&dev_attr_move_state.attr,
-	&dev_attr_config.attr,
-	&dev_attr_sw_switch.attr,
-	&dev_attr_position.attr,
-	&dev_attr_manual2auto_switch.attr,
-	&dev_attr_motor_test.attr,
-	&dev_attr_hall_data.attr,
-	&dev_attr_hall_reg.attr,
-	&dev_attr_hall_irq_count.attr,
-	&dev_attr_hall_calibration.attr,
-	&dev_attr_stall.attr,
-	&dev_attr_stall_steps.attr,
-	&dev_attr_stall_mode.attr,
-	&dev_attr_hall_detect_switch.attr,
-	&dev_attr_force_move.attr,
+	__MOTOR_ATTR(direction),
+	__MOTOR_ATTR(speed),
+	__MOTOR_ATTR(mode),
+	__MOTOR_ATTR(enable),
+	__MOTOR_ATTR(step_count),
+	__MOTOR_ATTR(save_hall_data),
+	__MOTOR_ATTR(change_speed),
+	__MOTOR_ATTR(move_state),
+	__MOTOR_ATTR(config),
+	__MOTOR_ATTR(sw_switch),
+	__MOTOR_ATTR(position),
+	__MOTOR_ATTR(manual2auto_switch),
+	__MOTOR_ATTR(motor_test),
+	__MOTOR_ATTR(hall_data),
+	__MOTOR_ATTR(hall_reg),
+	__MOTOR_ATTR(hall_irq_count),
+	__MOTOR_ATTR(hall_calibration),
+	__MOTOR_ATTR(stall),
+	__MOTOR_ATTR(stall_steps),
+	__MOTOR_ATTR(stall_mode),
+	__MOTOR_ATTR(hall_detect_switch),
+	__MOTOR_ATTR(force_move),
 
-	// &dev_attr_stop_time.attr,
-	// &dev_attr_initial_time.attr,
-	// &dev_attr_initial_speed.attr,
-	// &dev_attr_high_speed.attr,
-	// &dev_attr_high_speed_time.attr,
-	&dev_attr_slow_down_speed.attr,
-	&dev_attr_deltad_range.attr,
-	&dev_attr_begin_stop_detect_percent.attr,
-	&dev_attr_factory_mode.attr,
-	&dev_attr_free_fall_irq_times.attr,
-	&dev_attr_infrared_shut_down_state.attr,
-	&dev_attr_hall_sensitive.attr,
+	// __MOTOR_ATTR(stop_time),
+	// __MOTOR_ATTR(initial_time),
+	// __MOTOR_ATTR(initial_speed),
+	// __MOTOR_ATTR(high_speed),
+	// __MOTOR_ATTR(high_speed_time),
+	__MOTOR_ATTR(slow_down_speed),
+	__MOTOR_ATTR(deltad_range),
+	__MOTOR_ATTR(begin_stop_detect_percent),
+	__MOTOR_ATTR(factory_mode),
+	__MOTOR_ATTR(free_fall_irq_times),
+	__MOTOR_ATTR(infrared_shut_down_state),
+	__MOTOR_ATTR(hall_sensitive),
 	NULL
 };
 

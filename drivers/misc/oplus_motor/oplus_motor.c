@@ -62,6 +62,20 @@ static void oplus_motor_reset_check(struct oplus_motor_chip *chip);
 
 static bool in_cali = false;
 
+#ifdef CONFIG_MOTOR_CLASS_INTERFACE
+#define motor_dev class
+#define motor_attribute class_attribute
+#define MOTOR_ATTR(_name, _mode, _show, _store) \
+    struct class_attribute motor_attr_##_name = __ATTR(_name, _mode, _show, _store)
+#define __MOTOR_ATTR(_name) &motor_attr_##_name.attr
+#else
+#define motor_dev device
+#define motor_attribute device_attribute
+#define MOTOR_ATTR(_name, _mode, _show, _store) \
+    struct motor_attribute motor_attr_##_name = __ATTR(_name, _mode, _show, _store)
+#define __MOTOR_ATTR(_name) &motor_attr_##_name.attr
+#endif
+
 __attribute__((weak)) void oplus_parse_motor_info(struct oplus_motor_chip *chip)
 {
 	chip->info.type = MOTOR_FI5;
@@ -2637,8 +2651,8 @@ static void oplus_motor_reset_check(struct oplus_motor_chip *chip)
 }
 
 /*user space interface*/
-static ssize_t motor_direction_store(struct device *pdev,
-				     struct device_attribute *attr,
+static ssize_t motor_direction_store(struct motor_dev *pdev,
+				     struct motor_attribute *attr,
 				     const char *buf, size_t count)
 {
 	unsigned long direction = 0;
@@ -2659,8 +2673,8 @@ static ssize_t motor_direction_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t motor_direction_show(struct device *dev,
-				    struct device_attribute *attr, char *buf)
+static ssize_t motor_direction_show(struct motor_dev *dev,
+				    struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -2670,8 +2684,8 @@ static ssize_t motor_direction_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_chip->md_dir);
 }
 
-static ssize_t motor_speed_store(struct device *pdev,
-				 struct device_attribute *attr,
+static ssize_t motor_speed_store(struct motor_dev *pdev,
+				 struct motor_attribute *attr,
 				 const char *buff, size_t count)
 {
 	int md_index = 0, brake_index = 0, pulse_index = 0;
@@ -2713,8 +2727,8 @@ static ssize_t motor_speed_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t motor_speed_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static ssize_t motor_speed_show(struct motor_dev *dev,
+				struct motor_attribute *attr, char *buf)
 {
 	int index = 0, c = 0;
 	unsigned int speed;
@@ -2743,8 +2757,8 @@ static ssize_t motor_speed_show(struct device *dev,
 	return c;
 }
 
-static ssize_t motor_mode_store(struct device *pdev,
-				struct device_attribute *attr,
+static ssize_t motor_mode_store(struct motor_dev *pdev,
+				struct motor_attribute *attr,
 				const char *buff, size_t count)
 {
 	int mdmode = 0;
@@ -2766,8 +2780,8 @@ static ssize_t motor_mode_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t	motor_mode_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static ssize_t	motor_mode_show(struct motor_dev *dev,
+				struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -2777,8 +2791,8 @@ static ssize_t	motor_mode_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_chip->pwm_param.md_mode);
 }
 
-static ssize_t motor_enable_store(struct device *pdev,
-				  struct device_attribute *attr,
+static ssize_t motor_enable_store(struct motor_dev *pdev,
+				  struct motor_attribute *attr,
 				  const char *buff, size_t count)
 {
 	int enable = 0;
@@ -2802,8 +2816,8 @@ static ssize_t motor_enable_store(struct device *pdev,
 }
 
 
-static ssize_t motor_sw_switch_store(struct device *pdev,
-				     struct device_attribute *attr,
+static ssize_t motor_sw_switch_store(struct motor_dev *pdev,
+				     struct motor_attribute *attr,
 				     const char *buff, size_t count)
 {
 	unsigned long sw_switch = 0;
@@ -2821,8 +2835,8 @@ static ssize_t motor_sw_switch_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t	motor_sw_switch_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
+static ssize_t	motor_sw_switch_show(struct motor_dev *dev,
+				     struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -2833,8 +2847,8 @@ static ssize_t	motor_sw_switch_show(struct device *dev,
 }
 
 
-static ssize_t dhall_detect_switch_store(struct device *pdev,
-		struct device_attribute *attr,
+static ssize_t dhall_detect_switch_store(struct motor_dev *pdev,
+		struct motor_attribute *attr,
 		const char *buff, size_t count)
 {
 	unsigned long sw_switch = 0;
@@ -2856,8 +2870,8 @@ static ssize_t dhall_detect_switch_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t	dhall_detect_switch_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+static ssize_t	dhall_detect_switch_show(struct motor_dev *dev,
+		struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -2867,8 +2881,8 @@ static ssize_t	dhall_detect_switch_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_chip->hall_detect_switch);
 }
 
-static ssize_t dhall_get_data_show(struct device *dev,
-				   struct device_attribute *attr, char *buf)
+static ssize_t dhall_get_data_show(struct motor_dev *dev,
+				   struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip || !g_chip->up_data_buf || !g_chip->down_data_buf) {
 		MOTOR_ERR("g_chip null\n");
@@ -2879,8 +2893,8 @@ static ssize_t dhall_get_data_show(struct device *dev,
 			g_chip->down_data_buf);
 }
 
-static ssize_t	motor_all_config_show(struct device *dev,
-				      struct device_attribute *attr, char *buf)
+static ssize_t	motor_all_config_show(struct motor_dev *dev,
+				      struct motor_attribute *attr, char *buf)
 {
 	int config[6] = {0};
 
@@ -2897,8 +2911,8 @@ static ssize_t	motor_all_config_show(struct device *dev,
 			config[3], config[4], config[5]);
 }
 
-static ssize_t	motor_position_show(struct device *dev,
-				    struct device_attribute *attr, char *buf)
+static ssize_t	motor_position_show(struct motor_dev *dev,
+				    struct motor_attribute *attr, char *buf)
 {
 	int config[6] = {0};
 
@@ -2910,8 +2924,8 @@ static ssize_t	motor_position_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_chip->position);
 }
 
-static ssize_t	motor_test_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static ssize_t	motor_test_show(struct motor_dev *dev,
+				struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -2923,8 +2937,8 @@ static ssize_t	motor_test_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_chip->is_motor_test);
 }
 
-static ssize_t motor_test_store(struct device *pdev,
-				struct device_attribute *attr,
+static ssize_t motor_test_store(struct motor_dev *pdev,
+				struct motor_attribute *attr,
 				const char *buff, size_t count)
 {
 	int test = 0;
@@ -2969,8 +2983,8 @@ static enum hrtimer_restart motor_force_move_stop_timer_func(
 	return HRTIMER_NORESTART;
 }
 
-static ssize_t motor_force_move_store(struct device *pdev,
-				      struct device_attribute *attr, const char *buff, size_t count)
+static ssize_t motor_force_move_store(struct motor_dev *pdev,
+				      struct motor_attribute *attr, const char *buff, size_t count)
 {
 	int enable = 0;
 	int pwm_count = 0;
@@ -3011,8 +3025,8 @@ static ssize_t motor_force_move_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t dhall_data_store(struct device *pdev,
-				struct device_attribute *attr, const char *buff, size_t count)
+static ssize_t dhall_data_store(struct motor_dev *pdev,
+				struct motor_attribute *attr, const char *buff, size_t count)
 {
 	int id = 0;
 	char value[16] = {0};
@@ -3039,8 +3053,8 @@ static ssize_t dhall_data_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t dhall_data_show(struct device *dev,
-			       struct device_attribute *attr, char *buf)
+static ssize_t dhall_data_show(struct motor_dev *dev,
+			       struct motor_attribute *attr, char *buf)
 {
 	short hall0_val, hall1_val;
 
@@ -3057,8 +3071,8 @@ static ssize_t dhall_data_show(struct device *dev,
 	return sprintf(buf, "%d,%d\n", hall0_val, hall1_val);
 }
 
-static ssize_t dhall_max_data_show(struct device *dev,
-				   struct device_attribute *attr, char *buf)
+static ssize_t dhall_max_data_show(struct motor_dev *dev,
+				   struct motor_attribute *attr, char *buf)
 {
 	short hall0_val, hall1_val;
 
@@ -3086,8 +3100,8 @@ static ssize_t dhall_max_data_show(struct device *dev,
 	}
 }
 
-static ssize_t dhall_all_reg_show(struct device *dev,
-				  struct device_attribute *attr, char *buf)
+static ssize_t dhall_all_reg_show(struct motor_dev *dev,
+				  struct motor_attribute *attr, char *buf)
 {
 	u8 _buf0[512] = {0};
 	u8 _buf1[512] = {0};
@@ -3098,8 +3112,8 @@ static ssize_t dhall_all_reg_show(struct device *dev,
 	return sprintf(buf, "Hall0:\n%s \nHall1:\n%s\n", _buf0, _buf1);
 }
 
-static ssize_t motor_move_state_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
+static ssize_t motor_move_state_show(struct motor_dev *dev,
+				     struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -3109,8 +3123,8 @@ static ssize_t motor_move_state_show(struct device *dev,
 	return sprintf(buf, "%d\n", g_chip->move_state);
 }
 
-static ssize_t dhall_irq_count_show(struct device *dev,
-				    struct device_attribute *attr, char *buf)
+static ssize_t dhall_irq_count_show(struct motor_dev *dev,
+				    struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -3121,8 +3135,8 @@ static ssize_t dhall_irq_count_show(struct device *dev,
 		       g_chip->irq_count[DHALL_1]);
 }
 
-static ssize_t motor_manual2auto_switch_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+static ssize_t motor_manual2auto_switch_show(struct motor_dev *dev,
+		struct motor_attribute *attr, char *buf)
 {
 	int manual2auto_switch = 0;
 
@@ -3139,8 +3153,8 @@ static ssize_t motor_manual2auto_switch_show(struct device *dev,
 	return sprintf(buf, "%d\n", manual2auto_switch);
 }
 
-static ssize_t motor_manual2auto_switch_store(struct device *pdev,
-		struct device_attribute *attr,
+static ssize_t motor_manual2auto_switch_store(struct motor_dev *pdev,
+		struct motor_attribute *attr,
 		const char *buff, size_t count)
 {
 	int data[1] = {0};
@@ -3180,8 +3194,8 @@ static ssize_t motor_manual2auto_switch_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t dhall_stop_val_show(struct device *dev,
-				   struct device_attribute *attr, char *buf)
+static ssize_t dhall_stop_val_show(struct motor_dev *dev,
+				   struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -3191,8 +3205,8 @@ static ssize_t dhall_stop_val_show(struct device *dev,
 	return sprintf(buf, "%d,%d\n", g_chip->stop_rang_a, g_chip->stop_rang_b);
 }
 
-static ssize_t dhall_stop_val_store(struct device *pdev,
-				    struct device_attribute *attr, const char *buff, size_t count)
+static ssize_t dhall_stop_val_store(struct motor_dev *pdev,
+				    struct motor_attribute *attr, const char *buff, size_t count)
 {
 	int stop_value[2] = {0};
 
@@ -3209,8 +3223,8 @@ static ssize_t dhall_stop_val_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t dhall_in_calibration_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+static ssize_t dhall_in_calibration_show(struct motor_dev *dev,
+		struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -3220,8 +3234,8 @@ static ssize_t dhall_in_calibration_show(struct device *dev,
 	return sprintf(buf, "%d\n", g_chip->is_in_calibration);
 }
 
-static ssize_t dhall_in_calibration_store(struct device *pdev,
-		struct device_attribute *attr, const char *buff, size_t count)
+static ssize_t dhall_in_calibration_store(struct motor_dev *pdev,
+		struct motor_attribute *attr, const char *buff, size_t count)
 {
 	int in_calibration = 0;
 
@@ -3248,8 +3262,8 @@ static ssize_t dhall_in_calibration_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t dhall_calibration_show(struct device *dev,
-				      struct device_attribute *attr, char *buf)
+static ssize_t dhall_calibration_show(struct motor_dev *dev,
+				      struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -3265,8 +3279,8 @@ static ssize_t dhall_calibration_show(struct device *dev,
 		       g_chip->cali_data.up_retard_hall1 * g_chip->sign);
 }
 
-static ssize_t dhall_calibration_store(struct device *pdev,
-				       struct device_attribute *attr,
+static ssize_t dhall_calibration_store(struct motor_dev *pdev,
+				       struct motor_attribute *attr,
 				       const char *buff, size_t count)
 {
 	int data[6] = {0};
@@ -3337,8 +3351,8 @@ static ssize_t dhall_calibration_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t dhall_distance_store(struct device *pdev,
-				    struct device_attribute *attr,
+static ssize_t dhall_distance_store(struct motor_dev *pdev,
+				    struct motor_attribute *attr,
 				    const char *buff, size_t count)
 {
 	int up_distance = 0, down_distance = 0;
@@ -3355,8 +3369,8 @@ static ssize_t dhall_distance_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t dhall_stop_range_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
+static ssize_t dhall_stop_range_show(struct motor_dev *dev,
+				     struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -3369,8 +3383,8 @@ static ssize_t dhall_stop_range_show(struct device *dev,
 		       g_chip->stop.neg[1], g_chip->stop.pos[1]);
 }
 
-static ssize_t dhall_stop_range_store(struct device *pdev,
-				      struct device_attribute *attr,
+static ssize_t dhall_stop_range_store(struct motor_dev *pdev,
+				      struct motor_attribute *attr,
 				      const char *buff, size_t count)
 {
 	int neg_value[2] = {0}, pos_value[2] = {0};
@@ -3389,8 +3403,8 @@ static ssize_t dhall_stop_range_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t dhall_retard_range_show(struct device *dev,
-				       struct device_attribute *attr, char *buf)
+static ssize_t dhall_retard_range_show(struct motor_dev *dev,
+				       struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -3401,8 +3415,8 @@ static ssize_t dhall_retard_range_show(struct device *dev,
 		       g_chip->retard_sign, g_chip->retard_range_end);
 }
 
-static ssize_t dhall_retard_range_store(struct device *pdev,
-					struct device_attribute *attr,
+static ssize_t dhall_retard_range_store(struct motor_dev *pdev,
+					struct motor_attribute *attr,
 					const char *buff, size_t count)
 {
 	int neg_value[2] = {0};
@@ -3427,8 +3441,8 @@ static ssize_t dhall_retard_range_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t motor_detect_delay_show(struct device *dev,
-				       struct device_attribute *attr, char *buf)
+static ssize_t motor_detect_delay_show(struct motor_dev *dev,
+				       struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -3441,8 +3455,8 @@ static ssize_t motor_detect_delay_show(struct device *dev,
 		       g_chip->pwm_param.normal.down_brake_delay);
 }
 
-static ssize_t motor_detect_delay_store(struct device *pdev,
-					struct device_attribute *attr,
+static ssize_t motor_detect_delay_store(struct motor_dev *pdev,
+					struct motor_attribute *attr,
 					const char *buff, size_t count)
 {
 	int delay[3] = {0};
@@ -3460,8 +3474,8 @@ static ssize_t motor_detect_delay_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t motor_terminal_offset_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+static ssize_t motor_terminal_offset_show(struct motor_dev *dev,
+		struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -3472,8 +3486,8 @@ static ssize_t motor_terminal_offset_show(struct device *dev,
 		       g_chip->stop.offset[1]);
 }
 
-static ssize_t motor_terminal_offset_store(struct device *pdev,
-		struct device_attribute *attr,
+static ssize_t motor_terminal_offset_store(struct motor_dev *pdev,
+		struct motor_attribute *attr,
 		const char *buff, size_t count)
 {
 	int offset[2] = {0};
@@ -3492,8 +3506,8 @@ static ssize_t motor_terminal_offset_store(struct device *pdev,
 	return count;
 }
 
-static ssize_t motor_stop_in_advance_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+static ssize_t motor_stop_in_advance_show(struct motor_dev *dev,
+		struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -3503,8 +3517,8 @@ static ssize_t motor_stop_in_advance_show(struct device *dev,
 	return sprintf(buf, "%d \n", g_chip->stop_in_advance);
 }
 
-static ssize_t motor_stop_in_advance_store(struct device *pdev,
-		struct device_attribute *attr,
+static ssize_t motor_stop_in_advance_store(struct motor_dev *pdev,
+		struct motor_attribute *attr,
 		const char *buff, size_t count)
 {
 	int val = 0;
@@ -3528,8 +3542,8 @@ static ssize_t motor_stop_in_advance_store(struct device *pdev,
 }
 
 
-static ssize_t small_irq_later_speed_down_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+static ssize_t small_irq_later_speed_down_show(struct motor_dev *dev,
+		struct motor_attribute *attr, char *buf)
 {
 	if (!g_chip) {
 		MOTOR_ERR("g_chip null\n");
@@ -3540,8 +3554,8 @@ static ssize_t small_irq_later_speed_down_show(struct device *dev,
 		       g_chip->later_speed_down_stop_offset);
 }
 
-static ssize_t small_irq_later_speed_down_store(struct device *pdev,
-		struct device_attribute *attr,
+static ssize_t small_irq_later_speed_down_store(struct motor_dev *pdev,
+		struct motor_attribute *attr,
 		const char *buff, size_t count)
 {
 	int tmp[3] = {0};
