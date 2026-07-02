@@ -126,7 +126,8 @@ static inline unsigned long kmem_cache_flags(unsigned long object_size,
 
 
 /* Legal flag mask for kmem_cache_create(), for various configurations */
-#define SLAB_CORE_FLAGS (SLAB_HWCACHE_ALIGN | SLAB_CACHE_DMA | SLAB_PANIC | \
+#define SLAB_CORE_FLAGS (SLAB_HWCACHE_ALIGN | SLAB_CACHE_DMA | \
+			 SLAB_CACHE_DMA32 | SLAB_PANIC | \
 			 SLAB_TYPESAFE_BY_RCU | SLAB_DEBUG_OBJECTS )
 
 #if defined(CONFIG_DEBUG_SLAB)
@@ -312,7 +313,7 @@ static inline bool is_root_cache(struct kmem_cache *s)
 static inline bool slab_equal_or_root(struct kmem_cache *s,
 				      struct kmem_cache *p)
 {
-	return true;
+	return s == p;
 }
 
 static inline const char *cache_name(struct kmem_cache *s)
@@ -352,10 +353,20 @@ static inline void memcg_link_cache(struct kmem_cache *s)
 
 #endif /* CONFIG_MEMCG && !CONFIG_SLOB */
 
+static inline struct kmem_cache *virt_to_cache(const void *obj)
+{
+	struct page *page;
+
+	page = virt_to_head_page(obj);
+	if (WARN_ONCE(!PageSlab(page), "%s: Object is not a Slab page!\n",
+					__func__))
+		return NULL;
+	return page->slab_cache;
+}
+
 static inline struct kmem_cache *cache_from_obj(struct kmem_cache *s, void *x)
 {
 	struct kmem_cache *cachep;
-	struct page *page;
 
 	/*
 	 * When kmemcg is not being used, both assignments should return the
@@ -365,18 +376,15 @@ static inline struct kmem_cache *cache_from_obj(struct kmem_cache *s, void *x)
 	 * will also be a constant.
 	 */
 	if (!memcg_kmem_enabled() &&
+	    !IS_ENABLED(CONFIG_SLAB_FREELIST_HARDENED) &&
 	    !unlikely(s->flags & SLAB_CONSISTENCY_CHECKS))
 		return s;
 
-	page = virt_to_head_page(x);
-	cachep = page->slab_cache;
-	if (slab_equal_or_root(cachep, s))
-		return cachep;
-
-	pr_err("%s: Wrong slab cache. %s but object is from %s\n",
-	       __func__, s->name, cachep->name);
-	WARN_ON_ONCE(1);
-	return s;
+	cachep = virt_to_cache(x);
+	WARN_ONCE(cachep && !slab_equal_or_root(cachep, s),
+		  "%s: Wrong slab cache. %s but object is from %s\n",
+		  __func__, s->name, cachep->name);
+	return cachep;
 }
 
 static inline size_t slab_ksize(const struct kmem_cache *s)
