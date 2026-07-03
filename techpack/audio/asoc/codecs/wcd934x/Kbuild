@@ -92,7 +92,7 @@ ifdef CONFIG_SND_SOC_WCD934X
 	WCD934X_OBJS += wcd934x-dsd.o
 endif
 
-LINUX_INC +=	-Iinclude/linux
+LINUX_INC +=	-I$(srctree)/include/linux
 
 INCS +=		$(COMMON_INC) \
 		$(UAPI_INC)

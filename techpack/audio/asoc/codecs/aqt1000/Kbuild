@@ -71,7 +71,7 @@ ifeq ($(CONFIG_SND_SOC_AQT1000), m)
 	AQT1000_CDC_OBJS += aqt1000-mbhc.o
 endif
 
-LINUX_INC +=	-Iinclude/linux
+LINUX_INC +=	-I$(srctree)/include/linux
 
 INCS +=	$(COMMON_INC) \
 	$(UAPI_INC)

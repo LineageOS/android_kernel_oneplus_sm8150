@@ -71,7 +71,7 @@ ifdef CONFIG_SND_SOC_MSM_SDW
 	MSM_SDW_OBJS += msm_sdw_cdc_utils.o
 endif
 
-LINUX_INC +=	-Iinclude/linux
+LINUX_INC +=	-I$(srctree)/include/linux
 
 INCS +=		$(COMMON_INC) \
 		$(UAPI_INC)

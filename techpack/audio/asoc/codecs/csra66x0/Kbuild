@@ -53,7 +53,7 @@ ifdef CONFIG_SND_SOC_CSRA66X0
 	CSRA66X0_OBJS += csra66x0.o
 endif
 
-LINUX_INC +=	-Iinclude/linux
+LINUX_INC +=	-I$(srctree)/include/linux
 
 INCS +=		$(COMMON_INC) \
 		$(UAPI_INC)

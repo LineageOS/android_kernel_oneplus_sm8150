@@ -39,7 +39,7 @@ OBJECT_FILES_NON_STANDARD_paravirt_patch_$(BITS).o	:= y
 # non-deterministic coverage.
 KCOV_INSTRUMENT		:= n
 
-CFLAGS_irq.o := -I$(src)/../include/asm/trace
+CFLAGS_irq.o := -I $(srctree)/$(src)/../include/asm/trace
 
 obj-y			:= process_$(BITS).o signal.o
 obj-$(CONFIG_COMPAT)	+= signal_compat.o

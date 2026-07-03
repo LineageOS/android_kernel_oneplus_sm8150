@@ -117,7 +117,7 @@ ifdef CONFIG_WCD_SPI_AC
 	WCD_SPI_ACC_CTL_OBJS += wcd_spi_ctl_v01.o
 endif
 
-LINUX_INC +=	-Iinclude/linux
+LINUX_INC +=	-I$(srctree)/include/linux
 
 INCS +=		$(COMMON_INC) \
 		$(UAPI_INC)

@@ -7,4 +7,4 @@ stk1160-y := 	stk1160-core.o \
 
 obj-$(CONFIG_VIDEO_STK1160) += stk1160.o
 
-ccflags-y += -Idrivers/media/i2c
+ccflags-y += -I$(srctree)/drivers/media/i2c

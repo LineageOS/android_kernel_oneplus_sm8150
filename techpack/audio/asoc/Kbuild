@@ -169,7 +169,7 @@ ifdef CONFIG_QTI_PP
 	PLATFORM_OBJS += msm-qti-pp-config.o
 endif
 
-LINUX_INC +=	-Iinclude/linux
+LINUX_INC +=	-I$(srctree)/include/linux
 
 INCS +=		$(COMMON_INC) \
 		$(UAPI_INC)

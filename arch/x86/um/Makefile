@@ -38,7 +38,7 @@ USER_OBJS := bugs_$(BITS).o ptrace_user.o fault.o
 
 extra-y += user-offsets.s
 $(obj)/user-offsets.s: c_flags = -Wp,-MD,$(depfile) $(USER_CFLAGS) \
-	-Iarch/x86/include/generated
+	-I$(srctree)/arch/x86/include/generated
 
 UNPROFILE_OBJS := stub_segv.o
 CFLAGS_stub_segv.o := $(CFLAGS_NO_HARDENING)

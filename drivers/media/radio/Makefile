@@ -37,4 +37,4 @@ obj-$(CONFIG_USB_RAREMONO) += radio-raremono.o
 
 shark2-objs := radio-shark2.o radio-tea5777.o
 
-ccflags-y += -Isound
+ccflags-y += -I $(srctree)/sound

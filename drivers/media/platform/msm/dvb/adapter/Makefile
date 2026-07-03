@@ -1,6 +1,6 @@
-ccflags-y += -Idrivers/media/dvb-core/
-ccflags-y += -Idrivers/media/platform/msm/dvb/include/
-ccflags-y += -Idrivers/media/platform/msm/dvb/demux/
+ccflags-y += -I $(srctree)/drivers/media/dvb-core/
+ccflags-y += -I $(srctree)/drivers/media/platform/msm/dvb/include/
+ccflags-y += -I $(srctree)/drivers/media/platform/msm/dvb/demux/
 
 obj-$(CONFIG_DVB_MPQ) += mpq-adapter.o
 

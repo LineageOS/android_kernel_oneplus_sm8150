@@ -24,10 +24,6 @@
 	};
 };
 
-&tpdm_west {
-	status = "disabled";
-};
-
 &qusb_phy0 {
 	vdd-supply = <&L5A>;
 	vdda18-supply = <&L12A>;

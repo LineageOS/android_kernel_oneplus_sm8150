@@ -16,8 +16,8 @@
 # Inc.,  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
 
-ccflags-y += -I$(src)			# needed for trace events
-ccflags-y += -I$(src)/libxfs
+ccflags-y += -I $(srctree)/$(src)		# needed for trace events
+ccflags-y += -I $(srctree)/$(src)/libxfs
 
 ccflags-$(CONFIG_XFS_DEBUG) += -g
 
