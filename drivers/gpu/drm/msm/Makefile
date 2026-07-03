@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: GPL-2.0
-ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging -Idrivers/gpu/drm/msm/dp
-ccflags-y += -Idrivers/gpu/drm/msm/display-manager
-ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
-ccflags-y += -Idrivers/gpu/drm/msm/oplus
-ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
-ccflags-y += -Idrivers/gpu/drm/msm/sde
-ccflags-y += -Idrivers/media/platform/msm/sde/rotator
-ccflags-y += -Idrivers/gpu/drm/msm/hdmi
-ccflags-$(CONFIG_DRM_SDE_SHD) += -Idrivers/gpu/drm/msm/shd
-ccflags-$(CONFIG_DRM_SDE_SHP) += -Idrivers/gpu/drm/msm/shp
+ccflags-y := -I $(srctree)/include/drm -I $(srctree)/drivers/gpu/drm/msm -I $(srctree)/drivers/gpu/drm/msm/dsi-staging -I $(srctree)/drivers/gpu/drm/msm/dp
+ccflags-y += -I $(srctree)/drivers/gpu/drm/msm/display-manager
+ccflags-$(CONFIG_DRM_MSM_DSI) += -I $(srctree)/drivers/gpu/drm/msm/dsi
+ccflags-y += -I$(srctree)/drivers/gpu/drm/msm/oplus
+ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -I $(srctree)/drivers/gpu/drm/msm/dsi
+ccflags-y += -I $(srctree)/drivers/gpu/drm/msm/sde
+ccflags-y += -I $(srctree)/drivers/media/platform/msm/sde/rotator
+ccflags-y += -I $(srctree)/drivers/gpu/drm/msm/hdmi
+ccflags-$(CONFIG_DRM_SDE_SHD) += -I $(srctree)/drivers/gpu/drm/msm/shd
+ccflags-$(CONFIG_DRM_SDE_SHP) += -I $(srctree)/drivers/gpu/drm/msm/shp
 
 msm_drm-y := \
 	dp/dp_usbpd.o \

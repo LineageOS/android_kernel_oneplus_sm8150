@@ -61,7 +61,7 @@ ifdef CONFIG_SND_SOC_WCD9360
 	WCD9360_OBJS += wcd9360-dsp-cntl.o
 endif
 
-LINUX_INC +=	-Iinclude/linux
+LINUX_INC +=	-I$(srctree)/include/linux
 
 INCS +=		$(COMMON_INC) \
 		$(UAPI_INC)

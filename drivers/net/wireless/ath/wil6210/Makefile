@@ -28,4 +28,4 @@ wil6210-y += ftm.o
 CFLAGS_trace.o := -I$(src)
 
 MSM_11AD_PATH = drivers/platform/msm/msm_11ad
-CFLAGS_wil_platform.o := -I$(MSM_11AD_PATH)
+CFLAGS_wil_platform.o := -I $(srctree)/$(MSM_11AD_PATH)

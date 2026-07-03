@@ -116,7 +116,7 @@ ifdef CONFIG_WCD_DSP_GLINK
 WDSP_GLINK += wcd-dsp-glink.o
 endif
 
-LINUX_INC +=	-Iinclude/linux
+LINUX_INC +=	-I$(srctree)/include/linux
 
 INCS +=		$(COMMON_INC) \
 		$(UAPI_INC)

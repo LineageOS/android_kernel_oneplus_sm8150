@@ -11,6 +11,8 @@
 #ifndef KBUILD_NO_NLS
 # include <libintl.h>
 #else
+# include <features.h>
+__attribute_format_arg__(1)
 static inline const char *gettext(const char *txt) { return txt; }
 static inline void textdomain(const char *domainname) {}
 static inline void bindtextdomain(const char *name, const char *dir) {}
