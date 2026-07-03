@@ -25,7 +25,7 @@ COMMON_INC :=	-I$(AUDIO_ROOT)/$(COMMON_DIR)
 
 AUDIO_EXTEND_OBJS += audio_extend_drv.o
 
-LINUX_INC +=	-Iinclude/linux
+LINUX_INC +=	-I$(srctree)/include/linux
 
 INCS +=		$(COMMON_INC) \
 		$(UAPI_INC)
