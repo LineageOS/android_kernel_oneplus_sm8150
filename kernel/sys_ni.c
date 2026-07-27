@@ -229,6 +229,10 @@ cond_syscall(sys_eventfd2);
 cond_syscall(sys_memfd_create);
 cond_syscall(sys_userfaultfd);
 
+/* kernel/fork.c */
+/* __ARCH_WANT_SYS_CLONE3 */
+cond_syscall(clone3);
+
 /* performance counters: */
 cond_syscall(sys_perf_event_open);
 
