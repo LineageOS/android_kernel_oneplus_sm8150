@@ -128,8 +128,8 @@ libs-y   += arch/$(ARCH)/lib/
 
 machdirs	:= $(patsubst %,arch/blackfin/mach-%/, $(machine-y))
 
-KBUILD_CFLAGS += -Iarch/$(ARCH)/include/
-KBUILD_CFLAGS += -Iarch/$(ARCH)/mach-$(MACHINE)/include
+KBUILD_CFLAGS += -I$(srctree)/arch/$(ARCH)/include/
+KBUILD_CFLAGS += -I$(srctree)/arch/$(ARCH)/mach-$(MACHINE)/include
 
 KBUILD_CPPFLAGS	+= $(patsubst %,-I$(srctree)/%include,$(machdirs))
 

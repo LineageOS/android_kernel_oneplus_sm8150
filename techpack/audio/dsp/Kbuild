@@ -155,7 +155,7 @@ ifdef CONFIG_VOICE_MHI
 	Q6_OBJS += voice_mhi.o
 endif
 
-LINUX_INC +=	-Iinclude/linux
+LINUX_INC +=	-I$(srctree)/include/linux
 
 INCS +=		$(COMMON_INC) \
 		$(UAPI_INC)

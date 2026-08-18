@@ -54,7 +54,7 @@ ifdef CONFIG_SND_SOC_EP92
 	EP92_OBJS += ep92.o
 endif
 
-LINUX_INC +=	-Iinclude/linux
+LINUX_INC +=	-I$(srctree)/include/linux
 
 INCS +=		$(COMMON_INC) \
 		$(UAPI_INC)

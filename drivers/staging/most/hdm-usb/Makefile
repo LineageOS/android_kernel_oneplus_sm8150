@@ -1,4 +1,4 @@
 obj-$(CONFIG_HDM_USB) += hdm_usb.o
 
-ccflags-y += -Idrivers/staging/most/mostcore/
-ccflags-y += -Idrivers/staging/most/aim-network/
+ccflags-y += -I$(srctree)/drivers/staging/most/mostcore/
+ccflags-y += -I$(srctree)/drivers/staging/most/aim-network/
