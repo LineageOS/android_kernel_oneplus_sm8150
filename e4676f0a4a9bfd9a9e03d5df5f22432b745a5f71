@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "037f44fc_6c22f3f0",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 9760
+      },
+      "writtenOn": "2026-08-31T09:10:45Z",
+      "side": 1,
+      "message": "Fixing the compilation without using oplus_non_dynamic.config",
+      "revId": "e4676f0a4a9bfd9a9e03d5df5f22432b745a5f71",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
