@@ -861,6 +861,7 @@ int oplus_chg_get_notify_flag(void);
 int oplus_is_vooc_project(void);
 
 int oplus_chg_show_vooc_logo_ornot(void);
+int oplus_chg_get_fast_chg_type(void);
 
 bool get_otg_switch(void);
 
@@ -882,6 +883,7 @@ int oplus_chg_get_charger_current(void);
 int oplus_chg_update_voltage(void);
 
 void oplus_chg_set_chargerid_switch_val(int value);
+void oplus_chg_turn_off_charging(struct oplus_chg_chip *chip);
 void oplus_chg_turn_on_charging(struct oplus_chg_chip *chip);
 int oplus_chg_get_cool_down_status(void);
 bool is_cool_down_force_5v(void);
@@ -890,6 +892,7 @@ void oplus_smart_charge_by_shell_temp(struct oplus_chg_chip *chip, int val);
 int oplus_chg_override_by_shell_temp(int temp);
 int oplus_chg_get_shell_temp(void);
 void oplus_chg_clear_chargerid_info(void);
+extern int reset_mcu_delay;
 #ifndef CONFIG_OPLUS_CHARGER_MTK
 void oplus_chg_variables_reset(struct oplus_chg_chip *chip, bool in);
 void oplus_chg_external_power_changed(struct power_supply *psy);

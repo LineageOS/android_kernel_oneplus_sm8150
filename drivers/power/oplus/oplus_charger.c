@@ -148,89 +148,16 @@ module_param(chgr_dbg_total_time, int, 0644);
 MODULE_PARM_DESC(chgr_dbg_total_time, "debug charger total time");
 
 /****************************************/
-static int reset_mcu_delay = 0;
+int reset_mcu_delay = 0;
 static bool suspend_charger = false;
 static bool vbatt_higherthan_4180mv = false;
 static bool vbatt_lowerthan_3300mv = false;
-
-enum power_supply_property oplus_usb_props[] = {
-	POWER_SUPPLY_PROP_ONLINE,
-	POWER_SUPPLY_PROP_OTG_SWITCH,
-	POWER_SUPPLY_PROP_OTG_ONLINE,
-};
 
 enum power_supply_property oplus_ac_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 #ifdef CONFIG_OPLUS_FAST2NORMAL_CHG
 	POWER_SUPPLY_PROP_FAST2NORMAL_CHG,
 #endif
-};
-
-enum power_supply_property oplus_batt_props[] = {
-	POWER_SUPPLY_PROP_STATUS,
-	POWER_SUPPLY_PROP_HEALTH,
-	POWER_SUPPLY_PROP_PRESENT,
-	POWER_SUPPLY_PROP_TECHNOLOGY,
-	POWER_SUPPLY_PROP_CAPACITY,
-	POWER_SUPPLY_PROP_TEMP,
-	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-	POWER_SUPPLY_PROP_VOLTAGE_MIN,
-	POWER_SUPPLY_PROP_CURRENT_NOW,
-	POWER_SUPPLY_PROP_CHARGE_NOW,
-	POWER_SUPPLY_PROP_AUTHENTICATE,
-	POWER_SUPPLY_PROP_CHARGE_TIMEOUT,
-	POWER_SUPPLY_PROP_CHARGE_TECHNOLOGY,
-	POWER_SUPPLY_PROP_FAST_CHARGE,
-	POWER_SUPPLY_PROP_MMI_CHARGING_ENABLE,	/*add for MMI_CHG_TEST*/
-#ifdef CONFIG_OPLUS_CHARGER_MTK
-	POWER_SUPPLY_PROP_STOP_CHARGING_ENABLE,
-	POWER_SUPPLY_PROP_CHARGE_COUNTER,
-	POWER_SUPPLY_PROP_CURRENT_MAX,
-#endif
-#ifndef CONFIG_OPLUS_SDM670_CHARGER
-	POWER_SUPPLY_PROP_CHARGE_FULL,
-#endif
-	POWER_SUPPLY_PROP_BATTERY_FCC,
-	POWER_SUPPLY_PROP_BATTERY_SOH,
-	POWER_SUPPLY_PROP_BATTERY_CC,
-	POWER_SUPPLY_PROP_BATTERY_RM,
-	POWER_SUPPLY_PROP_BATTERY_NOTIFY_CODE,
-#ifdef CONFIG_OPLUS_SMART_CHARGER_SUPPORT
-	POWER_SUPPLY_PROP_COOL_DOWN,
-#endif
-	POWER_SUPPLY_PROP_ADAPTER_FW_UPDATE,
-	POWER_SUPPLY_PROP_VOOCCHG_ING,
-#ifdef CONFIG_OPLUS_CHECK_CHARGERID_VOLT
-	POWER_SUPPLY_PROP_CHARGERID_VOLT,
-#endif
-#ifdef CONFIG_OPLUS_SHIP_MODE_SUPPORT
-	POWER_SUPPLY_PROP_SHIP_MODE,
-#endif
-#ifdef CONFIG_OPLUS_CALL_MODE_SUPPORT
-	POWER_SUPPLY_PROP_CALL_MODE,
-#endif
-#ifdef CONFIG_OPLUS_SHORT_C_BATT_CHECK
-#ifdef CONFIG_OPLUS_SHORT_USERSPACE
-	POWER_SUPPLY_PROP_SHORT_C_LIMIT_CHG,
-	POWER_SUPPLY_PROP_SHORT_C_LIMIT_RECHG,
-	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
-	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
-#else
-	POWER_SUPPLY_PROP_SHORT_C_BATT_UPDATE_CHANGE,
-	POWER_SUPPLY_PROP_SHORT_C_BATT_IN_IDLE,
-	POWER_SUPPLY_PROP_SHORT_C_BATT_CV_STATUS,
-#endif /*CONFIG_OPLUS_SHORT_USERSPACE*/
-#endif
-#ifdef CONFIG_OPLUS_SHORT_HW_CHECK
-	POWER_SUPPLY_PROP_SHORT_C_HW_FEATURE,
-	POWER_SUPPLY_PROP_SHORT_C_HW_STATUS,
-#endif
-#ifdef CONFIG_OPLUS_SHORT_IC_CHECK
-	POWER_SUPPLY_PROP_SHORT_C_IC_OTP_STATUS,
-	POWER_SUPPLY_PROP_SHORT_C_IC_VOLT_THRESH,
-	POWER_SUPPLY_PROP_SHORT_C_IC_OTP_VALUE,
-#endif
-	POWER_SUPPLY_PROP_FAST_CHARGING,
 };
 
 #ifdef CONFIG_OPLUS_CHARGER_MTK
@@ -411,57 +338,8 @@ int oplus_battery_property_is_writeable(struct power_supply *psy,
 	int rc = 0;
 
 	switch (psp) {
-		case POWER_SUPPLY_PROP_MMI_CHARGING_ENABLE:
-			rc = 1;
-			break;
-#ifdef CONFIG_OPLUS_SMOOTH_SOC
-		case POWER_SUPPLY_PROP_SMOOTH_SWITCH:
-			rc = 1;
-			break;
-#endif
-#ifdef CONFIG_OPLUS_SMART_CHARGER_SUPPORT
-		case POWER_SUPPLY_PROP_COOL_DOWN:
-			rc = 1;
-			break;
-#endif
 #ifdef CONFIG_OPLUS_CHARGER_MTK
 		case POWER_SUPPLY_PROP_STOP_CHARGING_ENABLE:
-			rc = 1;
-			break;
-#endif
-#ifdef CONFIG_OPLUS_SHIP_MODE_SUPPORT
-		case POWER_SUPPLY_PROP_SHIP_MODE:
-			rc = 1;
-			break;
-#endif
-#ifdef CONFIG_OPLUS_CALL_MODE_SUPPORT
-		case POWER_SUPPLY_PROP_CALL_MODE:
-			rc = 1;
-			break;
-#endif
-#ifdef CONFIG_OPLUS_SHORT_C_BATT_CHECK
-#ifdef CONFIG_OPLUS_SHORT_USERSPACE
-		case POWER_SUPPLY_PROP_SHORT_C_LIMIT_CHG:
-		case POWER_SUPPLY_PROP_SHORT_C_LIMIT_RECHG:
-#else
-		case POWER_SUPPLY_PROP_SHORT_C_BATT_UPDATE_CHANGE:
-		case POWER_SUPPLY_PROP_SHORT_C_BATT_IN_IDLE:
-#endif /*CONFIG_OPLUS_SHORT_USERSPACE*/
-			rc = 1;
-			break;
-#endif
-#ifdef CONFIG_OPLUS_SHORT_HW_CHECK
-		case POWER_SUPPLY_PROP_SHORT_C_HW_FEATURE:
-			rc = 1;
-			break;
-#endif
-#ifdef CONFIG_OPLUS_SHORT_IC_CHECK
-		case POWER_SUPPLY_PROP_SHORT_C_IC_VOLT_THRESH:
-			rc = 1;
-			break;
-#endif
-#ifdef CONFIG_OPLUS_CHIP_SOC_NODE
-		case POWER_SUPPLY_PROP_CHIP_SOC:
 			rc = 1;
 			break;
 #endif
@@ -482,50 +360,7 @@ int oplus_battery_set_property(struct power_supply *psy,
 	struct oplus_chg_chip *chip = g_charger_chip;
 
 	switch (psp) {
-		case POWER_SUPPLY_PROP_MMI_CHARGING_ENABLE:
-			charger_xlog_printk(CHG_LOG_CRTI, "set mmi_chg = [%d].\n", val->intval);
-			if (val->intval == 0) {
-				if(chip->unwakelock_chg == 1) {
-					ret = -EINVAL;
-					charger_xlog_printk(CHG_LOG_CRTI,
-							"unwakelock testing , this test not allowed.\n");
-				} else {
-					chip->prop_status = POWER_SUPPLY_STATUS_NOT_CHARGING;
-					chip->mmi_chg = 0;
-					oplus_chg_turn_off_charging(chip);
-					if (oplus_vooc_get_fastchg_started() == true) {
-						oplus_vooc_turn_off_fastchg();
-						chip->mmi_fastchg = 0;
-					}
-				}
-			} else {
-				if(chip->unwakelock_chg == 1) {
-					ret = -EINVAL;
-					charger_xlog_printk(CHG_LOG_CRTI,
-							"unwakelock testing , this test not allowed.\n");
-				} else {
-					chip->mmi_chg = 1;
-					chip->prop_status = POWER_SUPPLY_STATUS_CHARGING;
-					if (oplus_vooc_get_fastchg_started() == false) {
-						oplus_chg_clear_chargerid_info();
-						reset_mcu_delay = 0;
-						oplus_vooc_reset_fastchg_after_usbout();
-					}
-					chip->mmi_fastchg = 1;
-					oplus_chg_turn_on_charging(chip);
-				}
-			}
-			break;
-#ifdef CONFIG_OPLUS_SMOOTH_SOC
-		case POWER_SUPPLY_PROP_SMOOTH_SWITCH:
-			chip->smooth_switch = val->intval;
-			break;
-#endif
 #ifdef CONFIG_OPLUS_SMART_CHARGER_SUPPORT
-		case POWER_SUPPLY_PROP_COOL_DOWN:
-			oplus_smart_charge_by_cool_down(chip, val->intval);
-			break;
-
 		case POWER_SUPPLY_PROP_CURRENT_NOW:
 			if (chip->smart_charging_screenoff) {
 				oplus_smart_charge_by_shell_temp(chip, val->intval);
@@ -544,60 +379,6 @@ int oplus_battery_set_property(struct power_supply *psy,
 				chip->stop_chg = 1;
 			}
 		break;
-#endif
-#ifdef CONFIG_OPLUS_SHIP_MODE_SUPPORT
-		case POWER_SUPPLY_PROP_SHIP_MODE:
-			chg_err("POWER_SUPPLY_PROP_SHIP_MODE\n");
-			chip->enable_shipmode = val->intval;
-			oplus_gauge_update_soc_smooth_parameter();
-			break;
-#endif
-#ifdef CONFIG_OPLUS_CALL_MODE_SUPPORT
-		case POWER_SUPPLY_PROP_CALL_MODE:
-			chip->calling_on = val->intval;
-			break;
-#endif
-#ifdef CONFIG_OPLUS_SHORT_C_BATT_CHECK
-#ifdef CONFIG_OPLUS_SHORT_USERSPACE
-		case POWER_SUPPLY_PROP_SHORT_C_LIMIT_CHG:
-			printk(KERN_ERR "[OPLUS_CHG] [short_c_bat] set limit chg[%d]\n", !!val->intval);
-			chip->short_c_batt.limit_chg = !!val->intval;
-			//for userspace logic
-			if (!!val->intval == 0){
-				chip->short_c_batt.is_switch_on = 0;
-			}
-			break;
-		case POWER_SUPPLY_PROP_SHORT_C_LIMIT_RECHG:
-			printk(KERN_ERR "[OPLUS_CHG] [short_c_bat] set limit rechg[%d]\n", !!val->intval);
-			chip->short_c_batt.limit_rechg = !!val->intval;
-			break;
-#else
-		case POWER_SUPPLY_PROP_SHORT_C_BATT_UPDATE_CHANGE:
-			printk(KERN_ERR "[OPLUS_CHG] [short_c_batt]: set update change[%d]\n", val->intval);
-			oplus_short_c_batt_update_change(chip, val->intval);
-			chip->short_c_batt.update_change = val->intval;
-			break;
-
-		case POWER_SUPPLY_PROP_SHORT_C_BATT_IN_IDLE:
-			printk(KERN_ERR "[OPLUS_CHG] [short_c_batt]: set in idle[%d]\n", !!val->intval);
-			chip->short_c_batt.in_idle = !!val->intval;
-			break;
-#endif /*CONFIG_OPLUS_SHORT_USERSPACE*/
-#endif /* CONFIG_OPLUS_SHORT_C_BATT_CHECK */
-#ifdef CONFIG_OPLUS_SHORT_HW_CHECK
-		case POWER_SUPPLY_PROP_SHORT_C_HW_FEATURE:
-			printk(KERN_ERR "[OPLUS_CHG] [short_c_hw_check]: set is_feature_hw_on [%d]\n", val->intval);
-			chip->short_c_batt.is_feature_hw_on = val->intval;
-			break;
-#endif /* CONFIG_OPLUS_SHORT_C_BATT_CHECK */
-#ifdef CONFIG_OPLUS_SHORT_IC_CHECK
-		case POWER_SUPPLY_PROP_SHORT_C_IC_VOLT_THRESH:
-			if (chip) {
-				chip->short_c_batt.ic_volt_threshold = val->intval;
-				oplus_short_ic_set_volt_threshold(chip);
-				//pr_err("%s:[OPLUS_CHG][oplus_short_ic],ic_volt_threshold val->intval[%d]\n", __FUNCTION__, val->intval);
-			}
-			break;
 #endif
 		default:
 			pr_err("set prop %d is not supported in batt\n", psp);
@@ -654,20 +435,6 @@ int oplus_battery_get_property(struct power_supply *psy,
 
 			break;
 
-#ifdef CONFIG_OPLUS_CHIP_SOC_NODE
-		case POWER_SUPPLY_PROP_CHIP_SOC:
-			val->intval = chip->soc;
-			break;
-#endif
-#ifdef CONFIG_OPLUS_SMOOTH_SOC
-		case POWER_SUPPLY_PROP_SMOOTH_SOC:
-			val->intval = chip->smooth_soc;
-			break;
-		case POWER_SUPPLY_PROP_SMOOTH_SWITCH:
-			val->intval = chip->smooth_switch;
-
-			break;
-#endif
 		case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 #ifdef CONFIG_OPLUS_CHARGER_MTK
 			val->intval = chip->batt_volt;
@@ -714,26 +481,6 @@ int oplus_battery_get_property(struct power_supply *psy,
 				val->intval = chip->charger_volt;
 			}
 			break;
-		case POWER_SUPPLY_PROP_AUTHENTICATE:
-			val->intval = chip->authenticate;
-			break;
-		case POWER_SUPPLY_PROP_CHARGE_TIMEOUT:
-			val->intval = chip->chging_over_time;
-			break;
-		case POWER_SUPPLY_PROP_CHARGE_TECHNOLOGY:
-			val->intval = chip->vooc_project;
-			break;
-		case POWER_SUPPLY_PROP_FAST_CHARGE:
-			val->intval = oplus_chg_show_vooc_logo_ornot();
-#ifdef CONFIG_OPLUS_CHARGER_MTK
-			if (val->intval) {
-				charger_xlog_printk(CHG_LOG_CRTI, "vooc_logo:%d\n", val->intval);
-			}
-#endif
-			break;
-		case POWER_SUPPLY_PROP_MMI_CHARGING_ENABLE:	/*add for MMI_CHG TEST*/
-			val->intval = chip->mmi_chg;
-			break;
 #ifdef CONFIG_OPLUS_CHARGER_MTK
 		case POWER_SUPPLY_PROP_STOP_CHARGING_ENABLE:
 			val->intval = chip->stop_chg;
@@ -750,123 +497,6 @@ int oplus_battery_get_property(struct power_supply *psy,
 			val->intval = chip->batt_fcc;
 			break;
 #endif
-		case POWER_SUPPLY_PROP_BATTERY_FCC:
-			val->intval = chip->batt_fcc;
-			break;
-		case POWER_SUPPLY_PROP_BATTERY_SOH:
-			val->intval = chip->batt_soh;
-			break;
-		case POWER_SUPPLY_PROP_BATTERY_CC:
-			val->intval = chip->batt_cc;
-			break;
-		case POWER_SUPPLY_PROP_BATTERY_RM:
-			if (oplus_vooc_get_fastchg_started() == true) {
-				chip->batt_rm =  oplus_gauge_get_prev_remaining_capacity() * chip->vbatt_num;
-			} else {
-				chip->batt_rm =  oplus_gauge_get_remaining_capacity() * chip->vbatt_num;
-			}
-			val->intval = chip->batt_rm;
-			break;
-		case POWER_SUPPLY_PROP_BATTERY_NOTIFY_CODE:
-			val->intval = chip->notify_code;
-			break;
-#ifdef CONFIG_OPLUS_SMART_CHARGER_SUPPORT
-		case POWER_SUPPLY_PROP_COOL_DOWN:
-			val->intval = chip->cool_down;
-			break;
-#endif
-		case POWER_SUPPLY_PROP_ADAPTER_FW_UPDATE:
-			val->intval = oplus_vooc_get_adapter_update_status();
-			break;
-		case POWER_SUPPLY_PROP_VOOCCHG_ING:
-			val->intval = oplus_vooc_get_fastchg_ing();
-#ifndef WPC_NEW_INTERFACE
-			if (!val->intval && chip->wireless_support) {
-				val->intval = oplus_wpc_get_fast_charging();
-			}
-#else
-			if (!val->intval && chip->wireless_support) {
-				val->intval = oplus_wpc_get_status();
-			}
-#endif
-			break;
-#ifdef CONFIG_OPLUS_CHECK_CHARGERID_VOLT
-		case POWER_SUPPLY_PROP_CHARGERID_VOLT:
-			val->intval = chip->chargerid_volt;
-			break;
-#endif
-#ifdef CONFIG_OPLUS_SHIP_MODE_SUPPORT
-		case POWER_SUPPLY_PROP_SHIP_MODE:
-			val->intval = chip->enable_shipmode;
-			break;
-#endif
-#ifdef CONFIG_OPLUS_CALL_MODE_SUPPORT
-		case POWER_SUPPLY_PROP_CALL_MODE:
-			val->intval = chip->calling_on;
-			break;
-#endif
-#ifdef CONFIG_OPLUS_SHORT_C_BATT_CHECK
-#ifdef CONFIG_OPLUS_SHORT_USERSPACE
-		case POWER_SUPPLY_PROP_SHORT_C_LIMIT_CHG:
-			val->intval = (int)chip->short_c_batt.limit_chg;
-			break;
-		case POWER_SUPPLY_PROP_SHORT_C_LIMIT_RECHG:
-			val->intval = (int)chip->short_c_batt.limit_rechg;
-			break;
-		case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
-			val->intval = chip->limits.iterm_ma;
-			break;
-		case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
-			val->intval = 2000;
-			if (chip && chip->chg_ops->get_dyna_aicl_result) {
-				val->intval = chip->chg_ops->get_dyna_aicl_result();
-			}
-			break;
-#else
-		case POWER_SUPPLY_PROP_SHORT_C_BATT_UPDATE_CHANGE:
-			val->intval = chip->short_c_batt.update_change;
-			break;
-		case POWER_SUPPLY_PROP_SHORT_C_BATT_IN_IDLE:
-			val->intval = (int)chip->short_c_batt.in_idle;
-			break;
-		case POWER_SUPPLY_PROP_SHORT_C_BATT_CV_STATUS:
-			val->intval = (int)oplus_short_c_batt_get_cv_status(chip);
-			break;
-#endif /*CONFIG_OPLUS_SHORT_USERSPACE*/
-#endif /* CONFIG_OPLUS_SHORT_C_BATT_CHECK */
-#ifdef CONFIG_OPLUS_SHORT_HW_CHECK
-		case POWER_SUPPLY_PROP_SHORT_C_HW_FEATURE:
-			val->intval = chip->short_c_batt.is_feature_hw_on;
-			break;
-		case POWER_SUPPLY_PROP_SHORT_C_HW_STATUS:
-			val->intval = chip->short_c_batt.shortc_gpio_status;
-			break;
-#endif /* CONFIG_OPLUS_SHORT_C_BATT_CHECK */
-#ifdef CONFIG_OPLUS_SHORT_IC_CHECK
-		case POWER_SUPPLY_PROP_SHORT_C_IC_OTP_STATUS:
-			if (chip) {
-				val->intval = chip->short_c_batt.ic_short_otp_st;
-			}
-			break;
-		case POWER_SUPPLY_PROP_SHORT_C_IC_VOLT_THRESH:
-			if (chip) {
-				val->intval = chip->short_c_batt.ic_volt_threshold;
-			}
-			break;
-		case POWER_SUPPLY_PROP_SHORT_C_IC_OTP_VALUE:
-			if (chip) {
-				val->intval = oplus_short_ic_get_otp_error_value(chip);
-			}
-			break;
-#endif
-		case POWER_SUPPLY_PROP_FAST_CHARGING:
-			val->intval = oplus_chg_show_vooc_logo_ornot();
-#ifdef CONFIG_OPLUS_CHARGER_MTK
-			if (val->intval) {
-				charger_xlog_printk(CHG_LOG_CRTI, "vooc_logo:%d\n", val->intval);
-			}
-#endif
-			break;
 		default:
 			pr_err("get prop %d is not supported in batt\n", psp);
 			ret = -EINVAL;
@@ -7928,6 +7558,20 @@ int oplus_is_vooc_project(void)
 	}
 }
 
+int oplus_chg_get_fast_chg_type(void)
+{
+	int type = 0;
+
+	if (!g_charger_chip)
+		return 0;
+
+	type = oplus_vooc_get_fast_chg_type();
+	if (type == 0 && g_charger_chip->chg_ops->get_charger_subtype)
+		type = g_charger_chip->chg_ops->get_charger_subtype();
+
+	return type;
+}
+
 int oplus_chg_show_vooc_logo_ornot(void)
 {
 	if (!g_charger_chip) {
@@ -8179,7 +7823,6 @@ int oplus_chg_get_shell_temp(void) {
 }
 
 void oplus_smart_charge_by_shell_temp(struct oplus_chg_chip *chip, int val) {
-	union power_supply_propval pval = {0, };
 	int subtype = 0, rc = -EINVAL,i = 0;
 
 	if (!chip) {
@@ -8222,16 +7865,9 @@ void oplus_smart_charge_by_shell_temp(struct oplus_chg_chip *chip, int val) {
 			chip->cool_down_done = true;
 			return;
 		}
-		rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_FAST_CHG_TYPE, &pval);
-		if (rc < 0) {
-			pr_err("Failed to read charging subtype\n");
-			return;
-		}
-		subtype = pval.intval;
-		charger_xlog_printk(CHG_LOG_CRTI, "get subtype pval->intval = [%d]\n",
-				pval.intval);
-		switch (pval.intval) {
+		subtype = oplus_chg_get_fast_chg_type();
+		charger_xlog_printk(CHG_LOG_CRTI, "get subtype = [%d]\n", subtype);
+		switch (subtype) {
 		case CHARGER_SUBTYPE_DEFAULT:
 			break;
 		case CHARGER_SUBTYPE_FASTCHG_VOOC:
@@ -8300,16 +7936,9 @@ void oplus_smart_charge_by_shell_temp(struct oplus_chg_chip *chip, int val) {
 			chip->cool_down_done = true;
 			return;
 		}
-		rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_FAST_CHG_TYPE, &pval);
-		if (rc < 0) {
-			pr_err("Failed to read charging subtype\n");
-			return;
-		}
-		subtype = pval.intval;
-		charger_xlog_printk(CHG_LOG_CRTI, "get subtype pval->intval = [%d]\n",
-				pval.intval);
-		switch (pval.intval) {
+		subtype = oplus_chg_get_fast_chg_type();
+		charger_xlog_printk(CHG_LOG_CRTI, "get subtype = [%d]\n", subtype);
+		switch (subtype) {
 		case CHARGER_SUBTYPE_DEFAULT:
 			break;
 		case CHARGER_SUBTYPE_FASTCHG_VOOC:
@@ -8340,7 +7969,7 @@ void oplus_smart_charge_by_shell_temp(struct oplus_chg_chip *chip, int val) {
 			chip->chg_ctrl_by_cool_down = true;
 			break;
 		default:
-			if (pval.intval > 10) {
+			if (subtype > 10) {
 				chip->cool_down = val / 1000;
 			}
 			break;

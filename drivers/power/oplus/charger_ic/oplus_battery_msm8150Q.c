@@ -58,6 +58,7 @@
 #include "../oplus_short.h"
 #include "../charger_ic/oplus_short_ic.h"
 #include "../oplus_adapter.h"
+#include "../oplus_configfs.h"
 #include "../charger_ic/oplus_bq25882.h"
 #include "../gauge_ic/oplus_bq27541.h"
 #include "op_charge.h"
@@ -73,6 +74,9 @@ void oplus_ccdetect_enable(void);
 int oplus_ccdetect_get_power_role(void);
 int qpnp_get_prop_charger_voltage_now(void);
 bool oplus_get_otg_switch_status(void);
+int oplus_get_otg_online_status(void);
+int oplus_get_usbtemp_volt_l(void);
+int oplus_get_usbtemp_volt_r(void);
 int oplus_ccdetect_support_check(void);
 void oplus_set_smb5_usb_props_type(enum power_supply_type type);
 void oplus_wake_up_usbtemp_thread(void);
@@ -86,7 +90,7 @@ int oplus_tbatt_power_off_task_init(struct oplus_chg_chip *chip);
 void oplus_set_opluschg_pd_sdp(bool value);
 static void oplus_set_otg_switch_status_default(bool value);
 static bool oplus_usb_or_otg_is_present(void);
-static void oplus_set_otg_switch_status(bool value);
+void oplus_set_otg_switch_status(bool value);
 int oplus_chg_enable_qc_detect(void);
 static void register_oplus_pdsvooc_svid(struct work_struct *work) ;
 bool oplus_check_pd_state_ready(void);
@@ -10442,17 +10446,6 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_QC_OPTI_DISABLE,
 	POWER_SUPPLY_PROP_VOLTAGE_VPH,
 	POWER_SUPPLY_PROP_THERM_ICL_LIMIT,
-#ifdef OPLUS_FEATURE_CHG_BASIC
-	POWER_SUPPLY_PROP_OTG_SWITCH,
-	POWER_SUPPLY_PROP_OTG_ONLINE,
-	POWER_SUPPLY_PROP_FAST_CHG_TYPE,
-#endif
-
-#ifdef OPLUS_FEATURE_CHG_BASIC
-	POWER_SUPPLY_PROP_USB_STATUS,
-	POWER_SUPPLY_PROP_USBTEMP_VOLT_L,
-	POWER_SUPPLY_PROP_USBTEMP_VOLT_R,
-#endif
 };
 #ifdef OPLUS_FEATURE_CHG_BASIC
 /**************************************************************
@@ -10477,7 +10470,7 @@ bool oplus_get_otg_switch_status(void)
 	return chip->otg_switch;
 }
 
-static int oplus_get_otg_online_status(void)
+int oplus_get_otg_online_status(void)
 {
 	union power_supply_propval val;
 	int ret;
@@ -10577,7 +10570,7 @@ static void oplus_set_otg_switch_status_default(bool value)
 		stat, g_oplus_chip->otg_switch, g_oplus_chip->otg_online, g_oplus_chip->ui_otg_switch);
 }
 
-static void oplus_set_otg_switch_status(bool value)
+void oplus_set_otg_switch_status(bool value)
 {
 #ifndef OPLUS_CUSTOM_OP_DEF
 	int level = 0;
@@ -10608,6 +10601,26 @@ static void oplus_set_otg_switch_status(bool value)
 	}
 	printk(KERN_ERR "[OPLUS_CHG][%s]: otg_switch=%d, otg_online=%d\n",
 			__func__, chip->otg_switch, chip->otg_online);
+}
+
+int oplus_get_usbtemp_volt_l(void)
+{
+	struct oplus_chg_chip *chip = g_oplus_chip;
+
+	if (!chip)
+		return -ENODATA;
+
+	return chip->usbtemp_volt_l;
+}
+
+int oplus_get_usbtemp_volt_r(void)
+{
+	struct oplus_chg_chip *chip = g_oplus_chip;
+
+	if (!chip)
+		return -ENODATA;
+
+	return chip->usbtemp_volt_r;
 }
 #endif /* OPLUS_FEATURE_CHG_BASIC */
 
@@ -10803,45 +10816,6 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		val->intval = get_client_vote(chg->usb_icl_votable,
 					THERMAL_THROTTLE_VOTER);
 		break;
-#ifdef OPLUS_FEATURE_CHG_BASIC
-	case POWER_SUPPLY_PROP_OTG_SWITCH:
-		val->intval = oplus_get_otg_switch_status();
-		break;
-	case POWER_SUPPLY_PROP_OTG_ONLINE:
-		val->intval = oplus_get_otg_online_status();
-		break;
-    case POWER_SUPPLY_PROP_FAST_CHG_TYPE:
-        val->intval = oplus_vooc_get_fast_chg_type();
-#ifndef OPLUS_FEATURE_CHG_BASIC
-        printk("val->intval = %d\n",val->intval);
-#endif
-        if (val->intval == 0 && g_oplus_chip && g_oplus_chip->chg_ops->get_charger_subtype) {
-            val->intval = g_oplus_chip->chg_ops->get_charger_subtype();
-        }
-#ifndef OPLUS_FEATURE_CHG_BASIC
-        printk("val->intval_after = %d\n",val->intval);
-#endif
-        break;
-#endif /*OPLUS_FEATURE_CHG_BASIC*/
-#ifdef OPLUS_FEATURE_CHG_BASIC
-	case POWER_SUPPLY_PROP_USB_STATUS:
-		val->intval = oplus_get_usb_status();
-		break;
- 	case POWER_SUPPLY_PROP_USBTEMP_VOLT_L:
-           	if (g_oplus_chip) {
-			val->intval = g_oplus_chip->usbtemp_volt_l;
-           	} else {
-			val->intval = -ENODATA;
-		}
-		break;
-	case POWER_SUPPLY_PROP_USBTEMP_VOLT_R:
-		if (g_oplus_chip) {
-			val->intval = g_oplus_chip->usbtemp_volt_r;
-		} else {
-			val->intval = -ENODATA;
-		}
-		break;
-#endif /*OPLUS_FEATURE_CHG_BASIC*/
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -10933,11 +10907,6 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_LIMIT:
 		smblib_set_prop_usb_voltage_max_limit(chg, val);
 		break;
-#ifdef OPLUS_FEATURE_CHG_BASIC
-	case POWER_SUPPLY_PROP_OTG_SWITCH:
-		oplus_set_otg_switch_status(!!val->intval);
-		break;
-#endif
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -10959,10 +10928,6 @@ static int smb5_usb_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_LIMIT:
 		return 1;
-#ifdef OPLUS_FEATURE_CHG_BASIC
-	case POWER_SUPPLY_PROP_OTG_SWITCH:
-		return 1;
-#endif
 	default:
 		break;
 	}
@@ -11539,86 +11504,13 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_RECHARGE_SOC,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
-    
-//#ifdef CONFIG_OPLUS_CHIP_SOC_NODE
-
-    POWER_SUPPLY_PROP_CHIP_SOC,
-//#endif
 	POWER_SUPPLY_PROP_FORCE_RECHARGE,
 	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
 #ifdef OPLUS_FEATURE_CHG_BASIC
-    /*oplus own battery props*/
-        POWER_SUPPLY_PROP_STATUS,
-        POWER_SUPPLY_PROP_HEALTH,
-        POWER_SUPPLY_PROP_PRESENT,
-        POWER_SUPPLY_PROP_TECHNOLOGY,
-        POWER_SUPPLY_PROP_CAPACITY,
-        POWER_SUPPLY_PROP_TEMP,
-        POWER_SUPPLY_PROP_VOLTAGE_NOW,
-        POWER_SUPPLY_PROP_VOLTAGE_MIN,
-        POWER_SUPPLY_PROP_CURRENT_NOW,
-
-        POWER_SUPPLY_PROP_CHARGE_NOW,
-        POWER_SUPPLY_PROP_AUTHENTICATE,
-        POWER_SUPPLY_PROP_CHARGE_TIMEOUT,
-        POWER_SUPPLY_PROP_CHARGE_TECHNOLOGY,
-        POWER_SUPPLY_PROP_FAST_CHARGE,
-        POWER_SUPPLY_PROP_MMI_CHARGING_ENABLE,
-        POWER_SUPPLY_PROP_BATTERY_FCC,
-        POWER_SUPPLY_PROP_BATTERY_SOH,
-        POWER_SUPPLY_PROP_BATTERY_CC,
-        POWER_SUPPLY_PROP_BATTERY_RM,
-        POWER_SUPPLY_PROP_BATTERY_NOTIFY_CODE,
-//#ifdef CONFIG_OPLUS_SMART_CHARGER_SUPPORT
-        POWER_SUPPLY_PROP_COOL_DOWN,
-//#endif
-        POWER_SUPPLY_PROP_ADAPTER_FW_UPDATE,
-        POWER_SUPPLY_PROP_VOOCCHG_ING,
-
-    /*CTS*/
-        POWER_SUPPLY_PROP_CHARGE_COUNTER,
-        POWER_SUPPLY_PROP_CURRENT_MAX,
-
-#if defined(CONFIG_OPLUS_CHARGER_MTK6763) || defined(CONFIG_OPLUS_CHARGER_MTK6771)
-        POWER_SUPPLY_PROP_STOP_CHARGING_ENABLE,
-        POWER_SUPPLY_PROP_adjust_power,
+	POWER_SUPPLY_PROP_VOLTAGE_MIN,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
 #endif
-#if defined(CONFIG_OPLUS_CHARGER_MTK6771)
-        POWER_SUPPLY_PROP_CHARGE_COUNTER,
-        POWER_SUPPLY_PROP_CURRENT_MAX,
-#endif
-//#ifdef CONFIG_OPLUS_CHIP_SOC_NODE
-        POWER_SUPPLY_PROP_CHIP_SOC,
-
-#ifdef CONFIG_OPLUS_CHECK_CHARGERID_VOLT
-        POWER_SUPPLY_PROP_CHARGERID_VOLT,
-#endif
-#ifdef CONFIG_OPLUS_SHIP_MODE_SUPPORT
-        POWER_SUPPLY_PROP_SHIP_MODE,
-#endif
-#ifdef CONFIG_OPLUS_SHORT_C_BATT_CHECK
-#ifdef CONFIG_OPLUS_SHORT_USERSPACE
-        POWER_SUPPLY_PROP_SHORT_C_LIMIT_CHG,
-        POWER_SUPPLY_PROP_SHORT_C_LIMIT_RECHG,
-        POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
-        POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
-#else
-        POWER_SUPPLY_PROP_SHORT_C_BATT_UPDATE_CHANGE,
-        POWER_SUPPLY_PROP_SHORT_C_BATT_IN_IDLE,
-        POWER_SUPPLY_PROP_SHORT_C_BATT_CV_STATUS,
-#endif//CONFIG_OPLUS_SHORT_USERSPACE
-#endif
-#ifdef CONFIG_OPLUS_SHORT_HW_CHECK
-        POWER_SUPPLY_PROP_SHORT_C_HW_FEATURE,
-        POWER_SUPPLY_PROP_SHORT_C_HW_STATUS,
-#endif
-#ifdef CONFIG_OPLUS_SHORT_IC_CHECK
-        POWER_SUPPLY_PROP_SHORT_C_IC_OTP_STATUS,
-        POWER_SUPPLY_PROP_SHORT_C_IC_VOLT_THRESH,
-        POWER_SUPPLY_PROP_SHORT_C_IC_OTP_VALUE,
-#endif
-	POWER_SUPPLY_PROP_FAST_CHARGING,
-#endif//OPLUS_FEATURE_CHG_BASIC
 };
 
 static int smb5_batt_get_prop(struct power_supply *psy,
@@ -15572,6 +15464,8 @@ static int smb5_probe(struct platform_device *pdev)
 #endif
 	if (oplus_usbtemp_check_is_support() == true )
 		oplus_usbtemp_thread_init();
+
+	oplus_chg_configfs_init(oplus_chip);
 #endif
 	smb5_create_debugfs(chip);
 
