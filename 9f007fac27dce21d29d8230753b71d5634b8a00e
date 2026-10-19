@@ -16,6 +16,24 @@
       "message": "A great patch!\nI connect a 100W charger, and fast charging immediately starts (albeit at 20W, not 30W). But there’s still a problem. If the charger is 100W, then around 70% the charging starts cycling through restarts. I think you’ve seen this too?",
       "revId": "9f007fac27dce21d29d8230753b71d5634b8a00e",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "cf2d88be_0ee8627b",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2026-10-19T18:55:44Z",
+      "side": 1,
+      "message": "no idea, the motivation was to avoid this https://review.lineageos.org/c/LineageOS/android_hardware_interfaces/+/494336\n\nbut this patch alone shouldn\u0027t have changed anything about actual charging afaict.",
+      "parentUuid": "78951f38_4f722a21",
+      "revId": "9f007fac27dce21d29d8230753b71d5634b8a00e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ],
   "submitRequirementResults": [
