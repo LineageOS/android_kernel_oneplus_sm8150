@@ -34,6 +34,24 @@
       "parentUuid": "78951f38_4f722a21",
       "revId": "9f007fac27dce21d29d8230753b71d5634b8a00e",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "93e57da0_c570563a",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2026-10-19T19:14:43Z",
+      "side": 1,
+      "message": "although, now that i think about, if battery ueventd exceeded 2k it\u0027d fallback to polling and that\u0027d make you believe that fast charging doesn\u0027t get activated right away?",
+      "parentUuid": "cf2d88be_0ee8627b",
+      "revId": "9f007fac27dce21d29d8230753b71d5634b8a00e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ],
   "submitRequirementResults": [
