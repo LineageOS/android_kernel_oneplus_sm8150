@@ -70,6 +70,23 @@
       "parentUuid": "cf2d88be_0ee8627b",
       "revId": "9f007fac27dce21d29d8230753b71d5634b8a00e",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "2a6d048d_43ef9c6f",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 9760
+      },
+      "writtenOn": "2026-10-19T19:18:53Z",
+      "side": 1,
+      "message": "If you have a SuperVooc charger (more than 30W), check the charging with it. I use one from OnePlus 13.",
+      "revId": "9f007fac27dce21d29d8230753b71d5634b8a00e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ],
   "submitRequirementResults": [
