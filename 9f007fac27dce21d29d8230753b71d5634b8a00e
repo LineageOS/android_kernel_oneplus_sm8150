@@ -52,6 +52,24 @@
       "parentUuid": "cf2d88be_0ee8627b",
       "revId": "9f007fac27dce21d29d8230753b71d5634b8a00e",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "fd74079f_baa6f76f",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 9760
+      },
+      "writtenOn": "2026-10-19T19:16:16Z",
+      "side": 1,
+      "message": "As far as I can see, it has had an effect. Before this patch, when connecting a 100W SuperVooc charger, charging would start, but I don’t remember seeing a charging current greater than 1.5…2A. It was always slow charging. Around 70%, there would be a cyclic restart of the charge until it was fully charged. Now, however, fast charging is activated immediately. But the 70% issue persists.",
+      "parentUuid": "cf2d88be_0ee8627b",
+      "revId": "9f007fac27dce21d29d8230753b71d5634b8a00e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ],
   "submitRequirementResults": [
