@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "ebeaab61_74e2b42d",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10067
+      },
+      "writtenOn": "2026-10-30T07:09:30Z",
+      "side": 1,
+      "message": "shouldn\u0027t this be fixed via some upstream change? I really don\u0027t want to take downstream LLM hack for this. also generic fixes are to be uploaded to android_kernel_qcom_sm8150",
+      "revId": "92473438c5e6e1eb737536bb748c966e34b57e5f",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
