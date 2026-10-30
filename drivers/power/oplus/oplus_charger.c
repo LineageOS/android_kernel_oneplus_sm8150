@@ -6107,6 +6107,15 @@ static void oplus_chg_battery_update_status(struct oplus_chg_chip *chip)
 
 static void oplus_chg_get_chargerid_voltage(struct oplus_chg_chip *chip)
 {
+	/*
+	 * Avoid toggling charger-ID while using ordinary USB PD. Probing
+	 * here can disconnect a USB accessory during passthrough charging.
+	 * Keep the existing identification path for PD-SVOOC.
+	 */
+	if (!chip->pd_svooc && chip->chg_ops->get_charger_subtype &&
+	    chip->chg_ops->get_charger_subtype() == CHARGER_SUBTYPE_PD)
+		return;
+
 	if (chip->chg_ops->set_chargerid_switch_val == NULL
 			|| chip->chg_ops->get_chargerid_switch_val == NULL
 			|| chip->chg_ops->get_chargerid_volt == NULL) {
