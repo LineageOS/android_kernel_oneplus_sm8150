@@ -36,6 +36,11 @@
 		int result;						\
 									\
 		mutex_lock(&opts->lock);				\
+		if (!opts->net) {					\
+			mutex_unlock(&opts->lock);			\
+			return -EINVAL;					\
+		}							\
+									\
 		result = gether_get_dev_addr(opts->net, page, PAGE_SIZE); \
 		mutex_unlock(&opts->lock);				\
 									\
@@ -52,6 +57,11 @@
 		if (opts->refcnt) {					\
 			mutex_unlock(&opts->lock);			\
 			return -EBUSY;					\
+		}							\
+									\
+		if (!opts->net) {					\
+			mutex_unlock(&opts->lock);			\
+			return -EINVAL;					\
 		}							\
 									\
 		ret = gether_set_dev_addr(opts->net, page);		\
@@ -71,6 +81,11 @@
 		int result;						\
 									\
 		mutex_lock(&opts->lock);				\
+		if (!opts->net) {					\
+			mutex_unlock(&opts->lock);			\
+			return -EINVAL;					\
+		}							\
+									\
 		result = gether_get_host_addr(opts->net, page, PAGE_SIZE); \
 		mutex_unlock(&opts->lock);				\
 									\
@@ -87,6 +102,11 @@
 		if (opts->refcnt) {					\
 			mutex_unlock(&opts->lock);			\
 			return -EBUSY;					\
+		}							\
+									\
+		if (!opts->net) {					\
+			mutex_unlock(&opts->lock);			\
+			return -EINVAL;					\
 		}							\
 									\
 		ret = gether_set_host_addr(opts->net, page);		\
@@ -106,6 +126,11 @@
 		unsigned qmult;						\
 									\
 		mutex_lock(&opts->lock);				\
+		if (!opts->net) {					\
+			mutex_unlock(&opts->lock);			\
+			return -EINVAL;					\
+		}							\
+									\
 		qmult = gether_get_qmult(opts->net);			\
 		mutex_unlock(&opts->lock);				\
 		return sprintf(page, "%d\n", qmult);			\
@@ -121,6 +146,11 @@
 		mutex_lock(&opts->lock);				\
 		if (opts->refcnt) {					\
 			ret = -EBUSY;					\
+			goto out;					\
+		}							\
+									\
+		if (!opts->net) {					\
+			ret = -EINVAL;					\
 			goto out;					\
 		}							\
 									\
@@ -145,6 +175,11 @@ out:									\
 		int ret;						\
 									\
 		mutex_lock(&opts->lock);				\
+		if (!opts->net) {					\
+			mutex_unlock(&opts->lock);			\
+			return -EINVAL;					\
+		}							\
+									\
 		ret = gether_get_ifname(opts->net, page, PAGE_SIZE);	\
 		mutex_unlock(&opts->lock);				\
 									\
@@ -155,11 +190,20 @@ out:									\
 					       const char *page, size_t len)\
 	{								\
 		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
-		int ret = -EBUSY;					\
+		int ret;						\
 									\
 		mutex_lock(&opts->lock);				\
-		if (!opts->refcnt)					\
-			ret = gether_set_ifname(opts->net, page, len);	\
+		if (opts->refcnt) {					\
+			mutex_unlock(&opts->lock);			\
+			return -EBUSY;					\
+		}							\
+									\
+		if (!opts->net) {					\
+			mutex_unlock(&opts->lock);			\
+			return -EINVAL;					\
+		}							\
+									\
+		ret = gether_set_ifname(opts->net, page, len);		\
 		mutex_unlock(&opts->lock);				\
 		return ret ?: len;					\
 	}								\

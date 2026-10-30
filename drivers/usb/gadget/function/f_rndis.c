@@ -799,17 +799,20 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 		rndis_opts->net = gether_setup_name_default("rndis");
 		if (IS_ERR(rndis_opts->net)) {
 			status = PTR_ERR(rndis_opts->net);
+			rndis_opts->net = NULL;
 			mutex_unlock(&rndis_opts->lock);
 			goto error;
 		}
 		gether_set_gadget(rndis_opts->net, cdev->gadget);
 		status = gether_register_netdev(rndis_opts->net);
-		mutex_unlock(&rndis_opts->lock);
 		if (status) {
 			free_netdev(rndis_opts->net);
+			rndis_opts->net = NULL;
+			mutex_unlock(&rndis_opts->lock);
 			goto error;
 		}
 		rndis_opts->bound = true;
+		mutex_unlock(&rndis_opts->lock);
 	}
 
 	gether_get_host_addr_u8(rndis_opts->net, rndis->ethaddr);
@@ -958,7 +961,13 @@ fail:
 		usb_ep_free_request(rndis->notify, rndis->notify_req);
 	}
 netdev_cleanup:
-	gether_cleanup(rndis->port.ioport);
+	mutex_lock(&rndis_opts->lock);
+	if (rndis_opts->net) {
+		gether_cleanup(netdev_priv(rndis_opts->net));
+		rndis_opts->net = NULL;
+	}
+	rndis_opts->bound = false;
+	mutex_unlock(&rndis_opts->lock);
 error:
 	ERROR(cdev, "%s: can't bind, err %d\n", f->name, status);
 
@@ -970,12 +979,17 @@ void rndis_borrow_net(struct usb_function_instance *f, struct net_device *net)
 	struct f_rndis_opts *opts;
 
 	opts = container_of(f, struct f_rndis_opts, func_inst);
-	if (opts->bound)
-		gether_cleanup(netdev_priv(opts->net));
-	else
-		free_netdev(opts->net);
+	mutex_lock(&opts->lock);
+	if (opts->net) {
+		if (opts->bound)
+			gether_cleanup(netdev_priv(opts->net));
+		else
+			free_netdev(opts->net);
+		opts->net = NULL;
+	}
 	opts->borrowed_net = opts->bound = true;
 	opts->net = net;
+	mutex_unlock(&opts->lock);
 }
 EXPORT_SYMBOL_GPL(rndis_borrow_net);
 
@@ -1114,8 +1128,13 @@ static void rndis_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	kfree(rndis->notify_req->buf);
 	usb_ep_free_request(rndis->notify, rndis->notify_req);
-	gether_cleanup(rndis->port.ioport);
+	mutex_lock(&opts->lock);
+	if (opts->net) {
+		gether_cleanup(netdev_priv(opts->net));
+		opts->net = NULL;
+	}
 	opts->bound = false;
+	mutex_unlock(&opts->lock);
 }
 
 static struct usb_function *rndis_alloc(struct usb_function_instance *fi)

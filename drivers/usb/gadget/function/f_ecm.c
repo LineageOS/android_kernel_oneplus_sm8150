@@ -711,17 +711,20 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
 		ecm_opts->net = gether_setup_name_default("ecm");
 		if (IS_ERR(ecm_opts->net)) {
 			status = PTR_ERR(ecm_opts->net);
+			ecm_opts->net = NULL;
 			mutex_unlock(&ecm_opts->lock);
 			goto error;
 		}
 		gether_set_gadget(ecm_opts->net, cdev->gadget);
 		status = gether_register_netdev(ecm_opts->net);
-		mutex_unlock(&ecm_opts->lock);
 		if (status) {
 			free_netdev(ecm_opts->net);
+			ecm_opts->net = NULL;
+			mutex_unlock(&ecm_opts->lock);
 			goto error;
 		}
 		ecm_opts->bound = true;
+		mutex_unlock(&ecm_opts->lock);
 	}
 
 	/* export host's Ethernet address in CDC format */
@@ -837,7 +840,13 @@ fail:
 	}
 
 netdev_cleanup:
-	gether_cleanup(netdev_priv(ecm_opts->net));
+	mutex_lock(&ecm_opts->lock);
+	if (ecm_opts->net) {
+		gether_cleanup(netdev_priv(ecm_opts->net));
+		ecm_opts->net = NULL;
+	}
+	ecm_opts->bound = false;
+	mutex_unlock(&ecm_opts->lock);
 error:
 	ERROR(cdev, "%s: can't bind, err %d\n", f->name, status);
 
@@ -932,8 +941,13 @@ static void ecm_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	kfree(ecm->notify_req->buf);
 	usb_ep_free_request(ecm->notify, ecm->notify_req);
+	mutex_lock(&opts->lock);
+	if (opts->net) {
+		gether_cleanup(netdev_priv(opts->net));
+		opts->net = NULL;
+	}
 	opts->bound = false;
-	gether_cleanup(netdev_priv(opts->net));
+	mutex_unlock(&opts->lock);
 }
 
 static struct usb_function *ecm_alloc(struct usb_function_instance *fi)
