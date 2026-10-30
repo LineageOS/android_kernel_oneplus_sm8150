@@ -16,6 +16,24 @@
       "message": "shouldn\u0027t this be fixed via some upstream change? I really don\u0027t want to take downstream LLM hack for this. also generic fixes are to be uploaded to android_kernel_qcom_sm8150",
       "revId": "92473438c5e6e1eb737536bb748c966e34b57e5f",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "730bdd09_2402fcf4",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 38499
+      },
+      "writtenOn": "2026-10-30T15:10:01Z",
+      "side": 1,
+      "message": "Thank you! You\u0027ll have to excuse some ignorance on my part for how stuff works. I\u0027ll upload a new patchset in the right tree.\n\nOn the upstream front... indeed, I\u0027d also prefer a clean upstream fix for it.\n\nBack in 2018-2020 CAF deviated from mainline and modified these files, and then added a bunch of guards specifically because of this class of dereference bugs.\n\nThen, in April 2025, https://review.lineageos.org/q/I51064467cad63e47a4a9734f18f1a5b95fa8db86 landed (goal was support for gether_set_ifname), reverting two commits and removing the guards from the macros. Unfortunately it only reverted 2 of the commits, and code from two other CAF commits still depended on the guards. I think the cleanest solution here is to revert CAF commits b26b39948b03 and d44dbd5aa7f6, removing the deviation completely. I\u0027ll draft the new patchset soon™",
+      "parentUuid": "ebeaab61_74e2b42d",
+      "revId": "92473438c5e6e1eb737536bb748c966e34b57e5f",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
